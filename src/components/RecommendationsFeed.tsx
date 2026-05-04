@@ -38,7 +38,9 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
     setLoading(true);
     setError(null);
     setThemes(detectThemes(commander));
-    commanderRecommendations(commander, partner, { max: 200 })
+    // shuffle: false — the feed has its own sort dropdown; we want stable
+    // rank order by default so users can scroll a predictable list.
+    commanderRecommendations(commander, partner, { max: 400, shuffle: false })
       .then((r) => setRecs(r))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load recommendations"))
       .finally(() => setLoading(false));

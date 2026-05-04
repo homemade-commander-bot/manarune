@@ -127,6 +127,16 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     }
   }, [history, deck.id]);
 
+  const reshuffle = useCallback(() => {
+    if (!commander || loading) return;
+    setLoading(true);
+    setError(null);
+    commanderRecommendations(commander, partner, { max: 400 })
+      .then((r) => setRecs(r))
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to reshuffle"))
+      .finally(() => setLoading(false));
+  }, [commander, partner, loading]);
+
   function executeSwap(cutCardId: string) {
     if (!swapPrompt) return;
     removeCard(deck.id, cutCardId);
@@ -345,6 +355,15 @@ export function SwipeFeed({ deck, onInspect }: Props) {
           aria-label="Inspect card details"
         >
           🔍 Details
+        </button>
+        <button
+          onClick={reshuffle}
+          disabled={loading}
+          className="px-3 py-1.5 rounded-full bg-bg-raised border border-fuchsia-700/40 text-fuchsia-300 text-xs hover:bg-fuchsia-900/20 transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Re-deal a fresh shuffle"
+          aria-label="Reshuffle recommendations"
+        >
+          🔀 Reshuffle
         </button>
       </div>
 

@@ -349,14 +349,21 @@ export async function commanderRecommendations(
   }
 
   // Shuffle so the user doesn't see the same order every visit. We keep
-  // EDHREC-synergy-tagged cards ordered toward the front by bucketing
-  // first: high-synergy cards get a partial shuffle of their own bucket
-  // so the most-relevant stuff still appears early.
+  // synergy-tagged cards ordered toward the front by bucketing first
+  // (single pass), then shuffling within each bucket so the most-relevant
+  // stuff still appears early but the rest is randomized.
   if (shuffle) {
-    const high = recs.filter((r) => (r.synergy ?? 0) >= 0.1);
-    const mid = recs.filter((r) => (r.synergy ?? 0) >= 0.02 && (r.synergy ?? 0) < 0.1);
-    const themed = recs.filter((r) => r.source === "theme" && !high.includes(r) && !mid.includes(r));
-    const rest = recs.filter((r) => !high.includes(r) && !mid.includes(r) && !themed.includes(r));
+    const high: Recommendation[] = [];
+    const mid: Recommendation[] = [];
+    const themed: Recommendation[] = [];
+    const rest: Recommendation[] = [];
+    for (const r of recs) {
+      const s = r.synergy ?? 0;
+      if (s >= 0.1) high.push(r);
+      else if (s >= 0.02) mid.push(r);
+      else if (r.source === "theme") themed.push(r);
+      else rest.push(r);
+    }
     shuffleInPlace(high);
     shuffleInPlace(mid);
     shuffleInPlace(themed);
