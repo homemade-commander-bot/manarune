@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --grad-W: linear-gradient(135deg, #fffbd5 0%, #d8c97d 100%);
+  --grad-U: linear-gradient(135deg, #aae0fa 0%, #347fb5 100%);
+  --grad-B: linear-gradient(135deg, #cbc2bf 0%, #2a2a2a 100%);
+  --grad-R: linear-gradient(135deg, #f9aa8f 0%, #c14a3a 100%);
+  --grad-G: linear-gradient(135deg, #9bd3ae 0%, #2f7c4d 100%);
+  --grad-default: radial-gradient(1200px 600px at 80% -10%, rgba(184, 134, 11, 0.18), transparent 60%),
+                  radial-gradient(900px 500px at -10% 110%, rgba(80, 50, 130, 0.18), transparent 60%);
+}
+
+html, body {
+  @apply bg-bg-base text-zinc-100;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+body {
+  background-image: var(--grad-default);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2d3340; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3d4555; }
+
+/* Mana symbols */
+.mana-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 999px;
+  font-size: 0.7em;
+  font-weight: 800;
+  margin: 0 1px;
+  vertical-align: middle;
+  box-shadow: inset 0 -1px 1px rgba(0,0,0,0.18);
+}
+.mana-W { background: #fffbd5; color: #463813; }
+.mana-U { background: #aae0fa; color: #134f73; }
+.mana-B { background: #cbc2bf; color: #2a2a2a; }
+.mana-R { background: #f9aa8f; color: #6e1b1b; }
+.mana-G { background: #9bd3ae; color: #1f4d2c; }
+.mana-C { background: #cac5c0; color: #3a3a3a; }
+.mana-X, .mana-N { background: #d9d2cc; color: #2a2a2a; }
+
+.card-shadow {
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04), 0 8px 22px rgba(0,0,0,0.5);
+}
+
+.btn {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all;
+}
+.btn-primary {
+  background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
+  @apply text-white shadow-sm;
+}
+.btn-primary:hover { background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%); }
+.btn-ghost { @apply bg-bg-raised hover:bg-bg-border text-zinc-100 border border-bg-border; }
+.btn-danger { @apply bg-red-700/80 hover:bg-red-700 text-white; }
+
+.panel {
+  @apply bg-bg-panel/90 backdrop-blur border border-bg-border rounded-xl;
+}
+
+.chip {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-bg-raised border border-bg-border;
+}
+
+.glow-amber {
+  box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.3), 0 0 24px rgba(217, 119, 6, 0.15);
+}
+
+/* Card hover lift used in the feed */
+.feed-card {
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms;
+}
+.feed-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(217, 119, 6, 0.4);
+}
+
+/* Add-to-deck flash animation */
+@keyframes addPulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  100% { box-shadow: 0 0 0 16px rgba(34, 197, 94, 0); }
+}
+.added-flash { animation: addPulse 600ms ease-out; }
+
+/* Commander banner */
+.commander-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid #2d3340;
+}
+.commander-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(13, 17, 23, 0.65) 60%, rgba(13, 17, 23, 0.95) 100%);
+  pointer-events: none;
+}
+
+/* Color-identity background tints */
+.bg-id-W { background: var(--grad-W); }
+.bg-id-U { background: var(--grad-U); }
+.bg-id-B { background: var(--grad-B); }
+.bg-id-R { background: var(--grad-R); }
+.bg-id-G { background: var(--grad-G); }
+.bg-id-multi {
+  background: conic-gradient(from 180deg, #fffbd5, #aae0fa, #cbc2bf, #f9aa8f, #9bd3ae, #fffbd5);
+}
+
+/* Subtle grain on panels */
+.grain {
+  background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
