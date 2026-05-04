@@ -1,0 +1,224 @@
+"use client";
+
+// Optional cloud sync UI. Renders one of three states:
+//   1. Sync not configured (no env vars) → small disabled note
+//   2. Sync configured, signed out → email field + magic-link button
+//   3. Sync configured, signed in → email + sign-out + sync status
+//
+// The component is purely additive — the app works fine without it.
+
+import { useEffect, useState } from "react";
+import { useDeckStore } from "@/lib/store";
+import {
+  deleteRemoteDeck,
+  fetchRemoteDecks,
+  pushDeck,
+  signInWithEmail,
+  signOut,
+  useSession,
+} from "@/lib/session";
+import type { Deck } from "@/lib/types";
+
+type SyncStatus = "idle" | "syncing" | "ok" | "error";
+
+export function CloudSync() {
+  const { user, syncEnabled, loading } = useSession();
+  const [email, setEmail] = useState("");
+  const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [lastSync, setLastSync] = useState<number | null>(null);
+
+  const decks = useDeckStore((s) => s.decks);
+
+  // On sign-in, pull remote decks and merge into local store.
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        setSyncStatus("syncing");
+        const remote = await fetchRemoteDecks();
+        if (remote.length > 0) {
+          const state = useDeckStore.getState();
+          const merged = { ...state.decks };
+          for (const d of remote) {
+            const local = merged[d.id];
+            // Last-write-wins by updatedAt
+            if (!local || (d.updatedAt ?? 0) > (local.updatedAt ?? 0)) {
+              merged[d.id] = d;
+            }
+          }
+          useDeckStore.setState({ decks: merged });
+        }
+        setSyncStatus("ok");
+        setLastSync(Date.now());
+      } catch (e) {
+        setSyncStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Sync failed");
+      }
+    })();
+  }, [user]);
+
+  // Push local changes to the cloud (debounced) when signed in.
+  useEffect(() => {
+    if (!user) return;
+    const t = window.setTimeout(async () => {
+      try {
+        setSyncStatus("syncing");
+        const list: Deck[] = Object.values(decks);
+        for (const d of list) await pushDeck(d);
+        setSyncStatus("ok");
+        setLastSync(Date.now());
+      } catch (e) {
+        setSyncStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Sync failed");
+      }
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [decks, user]);
+
+  if (!syncEnabled) {
+    return (
+      <section className="panel p-5">
+        <h2 className="font-display text-lg text-amber-300 mb-2">Cloud sync</h2>
+        <p className="text-xs text-zinc-400">
+          Cloud sync is not configured for this deployment. Your decks live in this browser only.
+        </p>
+        <p className="text-[10px] text-zinc-500 mt-2">
+          (Self-hosting? Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to enable.)
+        </p>
+      </section>
+    );
+  }
+
+  if (loading) {
+    return (
+      <section className="panel p-5">
+        <h2 className="font-display text-lg text-amber-300 mb-2">Cloud sync</h2>
+        <p className="text-xs text-zinc-500">Checking session…</p>
+      </section>
+    );
+  }
+
+  if (!user) {
+    return (
+      <section className="panel p-5 space-y-3">
+        <h2 className="font-display text-lg text-amber-300">Cloud sync</h2>
+        <p className="text-xs text-zinc-400">
+          Optional. Sign in with your email to sync decks across devices. We&rsquo;ll send you a one-time magic link — no password.
+        </p>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!email.trim()) return;
+            setSendState("sending");
+            setErrorMsg(null);
+            const { error } = await signInWithEmail(email.trim());
+            if (error) {
+              setSendState("error");
+              setErrorMsg(error);
+            } else {
+              setSendState("sent");
+            }
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="email"
+            required
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="flex-1 bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={sendState === "sending"}
+            className="btn btn-primary"
+          >
+            {sendState === "sending" ? "Sending…" : "Send magic link"}
+          </button>
+        </form>
+        {sendState === "sent" && (
+          <p className="text-xs text-emerald-400">
+            Check your email for the sign-in link. You can close this tab — clicking the link signs you in.
+          </p>
+        )}
+        {sendState === "error" && errorMsg && (
+          <p className="text-xs text-red-400">{errorMsg}</p>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel p-5 space-y-3">
+      <h2 className="font-display text-lg text-amber-300">Cloud sync</h2>
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-sm">
+          Signed in as <span className="text-amber-300 font-semibold">{user.email}</span>
+        </span>
+        <SyncBadge status={syncStatus} lastSync={lastSync} />
+        <button
+          onClick={async () => {
+            await signOut();
+            setSyncStatus("idle");
+            setLastSync(null);
+          }}
+          className="btn btn-ghost text-xs ml-auto"
+        >
+          Sign out
+        </button>
+      </div>
+      {syncStatus === "error" && errorMsg && (
+        <p className="text-xs text-red-400">Last error: {errorMsg}</p>
+      )}
+      <DeleteDeckSyncControl />
+    </section>
+  );
+}
+
+function SyncBadge({ status, lastSync }: { status: SyncStatus; lastSync: number | null }) {
+  if (status === "syncing") {
+    return <span className="chip text-[10px] text-amber-300 border-amber-700/40">⟳ Syncing</span>;
+  }
+  if (status === "error") {
+    return <span className="chip text-[10px] text-red-300 border-red-700/40">⚠ Sync error</span>;
+  }
+  if (status === "ok" && lastSync) {
+    return (
+      <span className="chip text-[10px] text-emerald-300 border-emerald-700/40">
+        ✓ Synced {timeAgo(lastSync)}
+      </span>
+    );
+  }
+  return <span className="chip text-[10px] text-zinc-400 border-zinc-700">Idle</span>;
+}
+
+function timeAgo(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+// Listens for deck deletions while signed in and mirrors them to the cloud.
+// Subscribed via Zustand instead of useEffect so we catch every change,
+// including ones that don't shrink the decks map (no-op deletes).
+function DeleteDeckSyncControl() {
+  useEffect(() => {
+    let prevIds = Object.keys(useDeckStore.getState().decks);
+    const unsub = useDeckStore.subscribe((s) => {
+      const ids = Object.keys(s.decks);
+      const removed = prevIds.filter((id) => !ids.includes(id));
+      prevIds = ids;
+      for (const id of removed) {
+        deleteRemoteDeck(id).catch(() => {
+          // Swallow — best-effort cleanup; orphaned rows are harmless.
+        });
+      }
+    });
+    return unsub;
+  }, []);
+  return null;
+}

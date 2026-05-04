@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Header } from "@/components/Header";
+import { CloudSync } from "@/components/CloudSync";
 import { useDeckStore, AVATAR_OPTIONS } from "@/lib/store";
 import { totalCards, deckPriceUsd, landCount } from "@/lib/analytics";
 import { detectThemes } from "@/lib/recommend";
@@ -115,10 +116,12 @@ export default function ProfilePage() {
           )}
         </section>
 
+        <CloudSync />
+
         <section className="panel p-5">
-          <h2 className="font-display text-lg text-amber-300 mb-2">Data</h2>
+          <h2 className="font-display text-lg text-amber-300 mb-2">Local data</h2>
           <p className="text-xs text-zinc-400 mb-3">
-            All decks and your profile are stored locally in your browser&rsquo;s localStorage. Clearing site data will erase them.
+            Decks and your profile are stored in this browser&rsquo;s localStorage. Clearing site data will erase anything that hasn&rsquo;t been synced to the cloud.
           </p>
           <button
             onClick={() => {
