@@ -30,6 +30,11 @@ interface DeckStore {
   decks: Record<string, Deck>;
   activeDeckId: string | null;
 
+  // Session-only: card IDs the user has already seen in the SwipeFeed for
+  // each deck this session. Cleared on commander change and on full
+  // page reload (not persisted). Stored as object so Zustand can serialize.
+  swipedIds: Record<string, string[]>;
+
   setProfile: (patch: Partial<Profile>) => void;
   resetProfile: () => void;
 
@@ -48,6 +53,9 @@ interface DeckStore {
 
   setNotes: (deckId: string, notes: string) => void;
   setThemes: (deckId: string, themes: string[]) => void;
+
+  markSwiped: (deckId: string, cardId: string) => void;
+  resetSwiped: (deckId: string) => void;
 }
 
 const emptyDeck = (name = "New Deck"): Deck => ({
@@ -67,6 +75,7 @@ export const useDeckStore = create<DeckStore>()(
       profile: defaultProfile(),
       decks: {},
       activeDeckId: null,
+      swipedIds: {},
 
       setProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
       resetProfile: () => set({ profile: defaultProfile() }),
@@ -118,11 +127,15 @@ export const useDeckStore = create<DeckStore>()(
           const entries = { ...deck.entries };
           if (deck.commanderId && entries[deck.commanderId]) delete entries[deck.commanderId];
           entries[card.id] = { cardId: card.id, card, quantity: 1, category: "Commander" };
+          // Reset swipe history — recommendations will rebuild for the new commander.
+          const nextSwiped = { ...s.swipedIds };
+          delete nextSwiped[deckId];
           return {
             decks: {
               ...s.decks,
               [deckId]: { ...deck, commanderId: card.id, entries, updatedAt: Date.now() },
             },
+            swipedIds: nextSwiped,
           };
         }),
 
@@ -211,11 +224,32 @@ export const useDeckStore = create<DeckStore>()(
           if (!deck) return s;
           return { decks: { ...s.decks, [deckId]: { ...deck, themes, updatedAt: Date.now() } } };
         }),
+
+      markSwiped: (deckId, cardId) =>
+        set((s) => {
+          const existing = s.swipedIds[deckId] ?? [];
+          if (existing.includes(cardId)) return s;
+          return { swipedIds: { ...s.swipedIds, [deckId]: [...existing, cardId] } };
+        }),
+
+      resetSwiped: (deckId) =>
+        set((s) => {
+          const next = { ...s.swipedIds };
+          delete next[deckId];
+          return { swipedIds: next };
+        }),
     }),
     {
       name: "mtg-commander-deck-builder",
       storage: createJSONStorage(() => localStorage),
       version: 2,
+      // swipedIds is intentionally session-only (not persisted) — it's a
+      // "don't show me this card twice this session" filter, not user data.
+      partialize: (state) => ({
+        profile: state.profile,
+        decks: state.decks,
+        activeDeckId: state.activeDeckId,
+      }),
       migrate: (state: unknown, fromVersion: number) => {
         const s = (state ?? {}) as Partial<DeckStore>;
         if (fromVersion < 2 && !s.profile) {

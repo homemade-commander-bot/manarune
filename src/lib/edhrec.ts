@@ -2,10 +2,18 @@
 // but their site backs every page with a JSON resource at the same path.
 // We use it to fetch commander recommendations and theme synergies.
 //
+// EDHREC does NOT send Access-Control-Allow-Origin headers, so direct
+// browser fetches are blocked by CORS. We route everything through our
+// own /api/edhrec/[...slug] proxy which fetches server-side and caches.
+//
 // Failures here NEVER break the app — recommendations are "nice to have,"
 // and we always fall back to a Scryfall heuristic search.
 
-const BASE = "https://json.edhrec.com/pages";
+// Browser → use the proxy. Server (during SSR) → call EDHREC directly.
+const BASE =
+  typeof window === "undefined"
+    ? "https://json.edhrec.com/pages"
+    : "/api/edhrec";
 
 export interface EdhrecCardRef {
   name: string;
@@ -48,7 +56,7 @@ function slug(name: string): string {
 async function safeFetch<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "MTG-Commander-Deck-Builder/0.2" },
+      headers: { Accept: "application/json" },
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
@@ -57,21 +65,29 @@ async function safeFetch<T>(url: string): Promise<T | null> {
   }
 }
 
+// Build the URL for either the proxy (browser, no .json suffix) or the
+// upstream (server, with .json suffix).
+function url(path: string): string {
+  return typeof window === "undefined"
+    ? `${BASE}/${path}.json`
+    : `${BASE}/${path}`;
+}
+
 export const edhrec = {
   async commanderPage(commanderName: string): Promise<EdhrecCommanderPage | null> {
     const s = slug(commanderName);
-    return safeFetch<EdhrecCommanderPage>(`${BASE}/commanders/${s}.json`);
+    return safeFetch<EdhrecCommanderPage>(url(`commanders/${s}`));
   },
 
   async themePage(commanderName: string, theme: string): Promise<EdhrecCommanderPage | null> {
     const cs = slug(commanderName);
     const ts = slug(theme);
-    return safeFetch<EdhrecCommanderPage>(`${BASE}/commanders/${cs}/${ts}.json`);
+    return safeFetch<EdhrecCommanderPage>(url(`commanders/${cs}/${ts}`));
   },
 
   // Top-X average decks (no commander). Useful for color-staple seeds.
   async colorPage(colorCode: string): Promise<EdhrecCommanderPage | null> {
-    return safeFetch<EdhrecCommanderPage>(`${BASE}/top/${slug(colorCode)}.json`);
+    return safeFetch<EdhrecCommanderPage>(url(`top/${slug(colorCode)}`));
   },
 
   flattenRecs(page: EdhrecCommanderPage): { section: string; cards: EdhrecCardRef[] }[] {

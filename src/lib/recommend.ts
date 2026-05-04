@@ -45,11 +45,25 @@ export function detectThemes(commander: Card): string[] {
     { theme: "lifelink", pattern: /lifelink/ },
     { theme: "deathtouch", pattern: /deathtouch/ },
     { theme: "flying", pattern: /flying/ },
-    { theme: "discard", pattern: /opponent discards|discard a card/ },
+    // Discard / wheels — covers Tergrid, Nath, Notion Thief, Nekusar, etc.
+    { theme: "discard", pattern: /opponent discards?|each (player|opponent) discards|discards? a card|discards? .* cards?/ },
+    { theme: "wheels", pattern: /each player draws|discard your hand.*draw|discards? their hand/ },
     { theme: "treasure", pattern: /treasure token/ },
     { theme: "energy", pattern: /energy counter|\{e\}/ },
     { theme: "infect", pattern: /infect|toxic|proliferate/ },
     { theme: "extra turns", pattern: /take an extra turn/ },
+    // Stax-flavored — taxes, prevents untapping, restricts opponents
+    { theme: "stax", pattern: /can't untap|don't untap|each (other )?player can't|opponents can't|skip .* untap step/ },
+    // Group hug / forced draw
+    { theme: "group hug", pattern: /each player draws|each opponent draws/ },
+    // Sacrifice payoffs (slightly distinct from aristocrats: cards that *want* to be sacrificed)
+    { theme: "sacrifice", pattern: /sacrifice .* creature.* (you control|:)/ },
+    // Bounce / tempo
+    { theme: "bounce", pattern: /return target .* to .* owner's hand/ },
+    // Landfall
+    { theme: "landfall", pattern: /landfall|whenever a land enters/ },
+    // Steal / theft
+    { theme: "theft", pattern: /gain control of|exchange control|steal/ },
   ];
   for (const m of matchers) if (m.pattern.test(text)) themes.add(m.theme);
 
@@ -82,7 +96,7 @@ export const STAPLES: { role: string; query: string; reason: string }[] = [
   { role: "Tutors", query: "o:'search your library for' o:card -o:land cmc<=4", reason: "Card selection" },
 ];
 
-export async function staplesFor(allowed: Set<Color>, max = 60): Promise<Recommendation[]> {
+export async function staplesFor(allowed: Set<Color>, max = 80): Promise<Recommendation[]> {
   const out: Recommendation[] = [];
   const idQ = colorIdentityQuery(allowed);
   const seen = new Set<string>();
@@ -90,7 +104,7 @@ export async function staplesFor(allowed: Set<Color>, max = 60): Promise<Recomme
   for (const s of STAPLES) {
     try {
       const list = await scryfall.searchCards(`${s.query} ${idQ} legal:commander`, { order: "edhrec" });
-      for (const c of list.data.slice(0, 6)) {
+      for (const c of list.data.slice(0, 10)) {
         if (seen.has(c.id)) continue;
         seen.add(c.id);
         out.push({ card: c, reason: `${s.role}: ${s.reason}`, source: "staple", section: s.role, rank: rank++ });
@@ -167,9 +181,42 @@ const THEME_QUERIES: Record<string, { role: string; query: string; reason: strin
     { role: "Proliferate", query: "o:proliferate", reason: "Add poison counters" },
     { role: "Infect Creatures", query: "o:infect or o:toxic", reason: "Infect threats" },
   ],
+  // Tergrid-class: force opponents to discard, then punish them.
+  discard: [
+    { role: "Forced Discard", query: "(o:'target opponent discards' or o:'each opponent discards' or o:'target player discards')", reason: "Force discards" },
+    { role: "Discard Punishers", query: "(o:'whenever an opponent discards' or o:'whenever a player discards')", reason: "Triggers when opponents discard" },
+    { role: "Hand Hate", query: "(o:'look at target opponent' o:hand or o:'reveal' o:hand) (t:instant or t:sorcery or t:enchantment)", reason: "See/strip opponents' hands" },
+    { role: "Recurring Discard", query: "(t:enchantment or t:creature) o:'discards a card'", reason: "Repeatable discard engine" },
+    { role: "Wheels", query: "(o:'discard your hand' o:'draws' or o:'each player draws') t:sorcery", reason: "Wheel effects" },
+  ],
+  wheels: [
+    { role: "Wheel Effects", query: "o:'each player' o:'draws' o:'cards'", reason: "Symmetric draw / refill" },
+    { role: "Wheel Payoffs", query: "(o:'whenever an opponent draws' or o:'whenever you draw your second card')", reason: "Punish opponent draws" },
+  ],
+  stax: [
+    { role: "Stax Pieces", query: "(o:\"don't untap\" or o:\"can't untap\" or o:'opponents can't' or o:'each opponent skips')", reason: "Restrict opponents" },
+    { role: "Tax Effects", query: "(o:'spells cost' o:'more to cast' or o:'an additional' o:'to cast')", reason: "Tax opponents' spells" },
+  ],
+  "group hug": [
+    { role: "Group Hug", query: "(o:'each player draws' or o:'each player may') (t:creature or t:enchantment)", reason: "Forced draw / fixing" },
+  ],
+  sacrifice: [
+    { role: "Free Sac Outlets", query: "o:'sacrifice a creature:' o:add", reason: "Free sacrifice for value" },
+    { role: "Treasure / Tokens to Sac", query: "(o:'create' o:'treasure' or o:'create' o:'1/1') -t:land", reason: "Cheap sac fodder" },
+  ],
+  bounce: [
+    { role: "Bounce", query: "o:'return target' o:\"owner's hand\" (t:instant or t:sorcery) cmc<=4", reason: "Tempo bounce" },
+  ],
+  landfall: [
+    { role: "Landfall Payoffs", query: "o:landfall", reason: "Triggers off lands" },
+    { role: "Extra Land Drops", query: "(o:'play an additional land' or o:'play two additional lands')", reason: "Trigger landfall more" },
+  ],
+  theft: [
+    { role: "Steal Effects", query: "o:'gain control of target'", reason: "Take opponents' stuff" },
+  ],
 };
 
-export async function themedRecommendations(themes: string[], allowed: Set<Color>, max = 40): Promise<Recommendation[]> {
+export async function themedRecommendations(themes: string[], allowed: Set<Color>, max = 120): Promise<Recommendation[]> {
   const out: Recommendation[] = [];
   const idQ = colorIdentityQuery(allowed);
   const seen = new Set<string>();
@@ -179,7 +226,7 @@ export async function themedRecommendations(themes: string[], allowed: Set<Color
       const subtype = theme.slice(7);
       try {
         const list = await scryfall.searchCards(`t:${subtype} ${idQ} legal:commander`, { order: "edhrec" });
-        for (const c of list.data.slice(0, 12)) {
+        for (const c of list.data.slice(0, 20)) {
           if (seen.has(c.id)) continue;
           seen.add(c.id);
           out.push({
@@ -198,7 +245,7 @@ export async function themedRecommendations(themes: string[], allowed: Set<Color
     for (const q of queries) {
       try {
         const list = await scryfall.searchCards(`${q.query} ${idQ} legal:commander`, { order: "edhrec" });
-        for (const c of list.data.slice(0, 6)) {
+        for (const c of list.data.slice(0, 12)) {
           if (seen.has(c.id)) continue;
           seen.add(c.id);
           out.push({ card: c, reason: `${theme}: ${q.reason}`, source: "theme", section: q.role, rank: rank++ });
@@ -210,12 +257,23 @@ export async function themedRecommendations(themes: string[], allowed: Set<Color
   return out.slice(0, max);
 }
 
+// Fisher-Yates in-place shuffle. Used to randomize the recommendation
+// queue so users don't see the same order every visit.
+function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export async function commanderRecommendations(
   commander: Card,
   partner?: Card,
-  opts: { themes?: string[]; max?: number } = {},
+  opts: { themes?: string[]; max?: number; shuffle?: boolean } = {},
 ): Promise<Recommendation[]> {
-  const max = opts.max ?? 200;
+  const max = opts.max ?? 400;
+  const shuffle = opts.shuffle ?? true;
   const allowed = commanderColorIdentity(commander, partner);
   const recs: Recommendation[] = [];
   const seen = new Set<string>();
@@ -230,7 +288,7 @@ export async function commanderRecommendations(
     type MetaEntry = { name: string; section: string; synergy?: number; inclusion?: number };
     const allMeta: MetaEntry[] = [];
     for (const grp of flat) {
-      for (const c of grp.cards.slice(0, 24)) {
+      for (const c of grp.cards.slice(0, 60)) {
         allMeta.push({ name: c.name, section: grp.section, synergy: c.synergy, inclusion: c.inclusion });
       }
     }
@@ -270,15 +328,14 @@ export async function commanderRecommendations(
     }
   }
 
-  // 2) Theme-targeted searches
-  if (recs.length < max) {
-    const themes = opts.themes ?? detectThemes(commander);
-    const themed = await themedRecommendations(themes, allowed, 40);
-    for (const t of themed) {
-      if (seen.has(t.card.id)) continue;
-      seen.add(t.card.id);
-      recs.push({ ...t, rank: globalRank++ });
-    }
+  // 2) Theme-targeted searches — always run so commander mechanics get
+  //    represented even when EDHREC has lots of generic staples.
+  const themes = opts.themes ?? detectThemes(commander);
+  const themed = await themedRecommendations(themes, allowed, 120);
+  for (const t of themed) {
+    if (seen.has(t.card.id)) continue;
+    seen.add(t.card.id);
+    recs.push({ ...t, rank: globalRank++ });
   }
 
   // 3) Format staples to fill the rest
@@ -289,6 +346,22 @@ export async function commanderRecommendations(
       seen.add(s.card.id);
       recs.push({ ...s, rank: globalRank++ });
     }
+  }
+
+  // Shuffle so the user doesn't see the same order every visit. We keep
+  // EDHREC-synergy-tagged cards ordered toward the front by bucketing
+  // first: high-synergy cards get a partial shuffle of their own bucket
+  // so the most-relevant stuff still appears early.
+  if (shuffle) {
+    const high = recs.filter((r) => (r.synergy ?? 0) >= 0.1);
+    const mid = recs.filter((r) => (r.synergy ?? 0) >= 0.02 && (r.synergy ?? 0) < 0.1);
+    const themed = recs.filter((r) => r.source === "theme" && !high.includes(r) && !mid.includes(r));
+    const rest = recs.filter((r) => !high.includes(r) && !mid.includes(r) && !themed.includes(r));
+    shuffleInPlace(high);
+    shuffleInPlace(mid);
+    shuffleInPlace(themed);
+    shuffleInPlace(rest);
+    return [...high, ...mid, ...themed, ...rest].slice(0, max);
   }
 
   return recs.slice(0, max);

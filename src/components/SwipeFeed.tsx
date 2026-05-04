@@ -23,13 +23,13 @@ interface SwapPrompt {
 }
 
 export function SwipeFeed({ deck, onInspect }: Props) {
-  const { addCard, removeCard } = useDeckStore();
+  const { addCard, removeCard, markSwiped, resetSwiped } = useDeckStore();
+  const swipedIds = useDeckStore((s) => s.swipedIds[deck.id] ?? []);
   const commander = deck.commanderId ? deck.entries[deck.commanderId]?.card : undefined;
   const partner = deck.partnerId ? deck.entries[deck.partnerId]?.card : undefined;
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [index, setIndex] = useState(0);
   const [history, setHistory] = useState<{ rec: Recommendation; action: "add" | "skip" }[]>([]);
   const [synergyOnly, setSynergyOnly] = useState(true);
   const [swapPrompt, setSwapPrompt] = useState<SwapPrompt | null>(null);
@@ -39,7 +39,10 @@ export function SwipeFeed({ deck, onInspect }: Props) {
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const animatingRef = useRef(false);
 
-  // Load recs on commander change. Reset queue.
+  // Load recs on commander change. The recommendation list is shuffled
+  // server-side (see recommend.ts), so each fetch produces a different
+  // order. We deliberately do NOT cache recs across visits — we'd rather
+  // re-shuffle than show the same lineup twice.
   useEffect(() => {
     if (!commander) {
       setRecs([]);
@@ -47,32 +50,34 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     }
     setLoading(true);
     setError(null);
-    commanderRecommendations(commander, partner, { max: 200 })
+    commanderRecommendations(commander, partner, { max: 400 })
       .then((r) => {
         setRecs(r);
-        setIndex(0);
         setHistory([]);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load recommendations"))
       .finally(() => setLoading(false));
   }, [commander?.id, partner?.id]);
 
-  // Filter: skip cards already in the deck or below synergy threshold (if enabled)
+  // Filter: skip cards already in the deck, already swiped this session,
+  // or below the synergy threshold (if synergyOnly is on).
+  const swipedSet = useMemo(() => new Set(swipedIds), [swipedIds]);
   const queue = useMemo(() => {
-    let out = recs.filter((r) => !deck.entries[r.card.id]);
+    let out = recs.filter((r) => !deck.entries[r.card.id] && !swipedSet.has(r.card.id));
     if (synergyOnly) {
-      // Keep cards with EDHREC synergy >= 5%, or fall back to those without a synergy field (theme/staple) if EDHREC was unreachable.
       const haveAnySynergy = out.some((r) => typeof r.synergy === "number");
       if (haveAnySynergy) {
         out = out.filter((r) => (r.synergy ?? 0) >= 0.05 || r.source !== "edhrec");
       }
     }
     return out;
-  }, [recs, deck.entries, synergyOnly]);
+  }, [recs, deck.entries, swipedSet, synergyOnly]);
 
-  const current = queue[index];
-  const next = queue[index + 1];
-  const remaining = Math.max(0, queue.length - index);
+  // Always operate on the leading edge of the queue. Once we mark a card
+  // as swiped, the filter pulls it out and queue[0] becomes the next card.
+  const current = queue[0];
+  const next = queue[1];
+  const remaining = queue.length;
   const currentComboPartners = useMemo(
     () => (current ? comboPartnersInDeck(current.card, deck) : []),
     [current, deck],
@@ -99,20 +104,26 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     setHistory((h) => [...h, { rec: current, action }]);
     const dx = action === "add" ? window.innerWidth : -window.innerWidth;
     setDrag({ x: dx, y: 0 });
+    const swipedCardId = current.card.id;
     setTimeout(() => {
-      setIndex((i) => i + 1);
+      // Mark as seen so the queue filter advances and the same card
+      // doesn't reappear if the user re-visits the Swipe tab.
+      markSwiped(deck.id, swipedCardId);
       setDrag(null);
       animatingRef.current = false;
     }, 220);
-  }, [current, addCard, deck, deck.id]);
+  }, [current, addCard, deck, deck.id, markSwiped]);
 
   const undo = useCallback(() => {
     if (history.length === 0 || animatingRef.current) return;
     const last = history[history.length - 1];
     setHistory((h) => h.slice(0, -1));
-    setIndex((i) => Math.max(0, i - 1));
+    // Pull the card back out of swipedIds so it re-appears at the front.
+    const state = useDeckStore.getState();
+    const ids = (state.swipedIds[deck.id] ?? []).filter((id) => id !== last.rec.card.id);
+    useDeckStore.setState({ swipedIds: { ...state.swipedIds, [deck.id]: ids } });
     if (last.action === "add") {
-      useDeckStore.getState().removeCard(deck.id, last.rec.card.id);
+      state.removeCard(deck.id, last.rec.card.id);
     }
   }, [history, deck.id]);
 
@@ -121,11 +132,12 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     removeCard(deck.id, cutCardId);
     addCard(deck.id, swapPrompt.incoming.card);
     setHistory((h) => [...h, { rec: swapPrompt.incoming, action: "add" }]);
+    const incomingId = swapPrompt.incoming.card.id;
     setSwapPrompt(null);
     animatingRef.current = true;
     setDrag({ x: window.innerWidth, y: 0 });
     setTimeout(() => {
-      setIndex((i) => i + 1);
+      markSwiped(deck.id, incomingId);
       setDrag(null);
       animatingRef.current = false;
     }, 220);
@@ -201,16 +213,32 @@ export function SwipeFeed({ deck, onInspect }: Props) {
   }
 
   if (!current) {
+    const seenAny = swipedSet.size > 0;
     return (
       <div className="panel p-12 text-center">
         <div className="text-5xl mb-3">🎉</div>
         <h3 className="font-display text-xl text-amber-300 mb-1">All swiped!</h3>
         <p className="text-zinc-400 text-sm mb-4">
-          You&rsquo;ve seen every recommendation in this filter. Switch to the feed view, or relax the synergy filter to see more.
+          {seenAny
+            ? "You've seen every recommendation that matches your filter. Reset to see them again, or switch off the synergy filter."
+            : "No recommendations matched. Switch off the synergy filter to broaden the pool."}
         </p>
-        <button onClick={() => setSynergyOnly((v) => !v)} className="btn btn-ghost">
-          {synergyOnly ? "Show all recommendations" : "High-synergy only"}
-        </button>
+        <div className="flex items-center justify-center gap-2">
+          <button onClick={() => setSynergyOnly((v) => !v)} className="btn btn-ghost">
+            {synergyOnly ? "Show all recommendations" : "High-synergy only"}
+          </button>
+          {seenAny && (
+            <button
+              onClick={() => {
+                resetSwiped(deck.id);
+                setHistory([]);
+              }}
+              className="btn btn-primary"
+            >
+              Reset swipe history
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -232,10 +260,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
           <input
             type="checkbox"
             checked={synergyOnly}
-            onChange={(e) => {
-              setSynergyOnly(e.target.checked);
-              setIndex(0);
-            }}
+            onChange={(e) => setSynergyOnly(e.target.checked)}
             className="accent-amber-500"
           />
           High-synergy only
