@@ -24,7 +24,9 @@ interface SwapPrompt {
 
 export function SwipeFeed({ deck, onInspect }: Props) {
   const { addCard, removeCard, markSwiped, resetSwiped } = useDeckStore();
-  const swipedIds = useDeckStore((s) => s.swipedIds[deck.id] ?? []);
+  // Defensive ?? against undefined swipedIds — older persisted state may
+  // not have this field even after the rehydrate hook normalizes it.
+  const swipedIds = useDeckStore((s) => s.swipedIds?.[deck.id] ?? []);
   const commander = deck.commanderId ? deck.entries[deck.commanderId]?.card : undefined;
   const partner = deck.partnerId ? deck.entries[deck.partnerId]?.card : undefined;
   const [recs, setRecs] = useState<Recommendation[]>([]);
@@ -120,8 +122,9 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     setHistory((h) => h.slice(0, -1));
     // Pull the card back out of swipedIds so it re-appears at the front.
     const state = useDeckStore.getState();
-    const ids = (state.swipedIds[deck.id] ?? []).filter((id) => id !== last.rec.card.id);
-    useDeckStore.setState({ swipedIds: { ...state.swipedIds, [deck.id]: ids } });
+    const all = state.swipedIds ?? {};
+    const ids = (all[deck.id] ?? []).filter((id) => id !== last.rec.card.id);
+    useDeckStore.setState({ swipedIds: { ...all, [deck.id]: ids } });
     if (last.action === "add") {
       state.removeCard(deck.id, last.rec.card.id);
     }

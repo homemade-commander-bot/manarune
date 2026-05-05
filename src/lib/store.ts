@@ -128,7 +128,7 @@ export const useDeckStore = create<DeckStore>()(
           if (deck.commanderId && entries[deck.commanderId]) delete entries[deck.commanderId];
           entries[card.id] = { cardId: card.id, card, quantity: 1, category: "Commander" };
           // Reset swipe history — recommendations will rebuild for the new commander.
-          const nextSwiped = { ...s.swipedIds };
+          const nextSwiped = { ...(s.swipedIds ?? {}) };
           delete nextSwiped[deckId];
           return {
             decks: {
@@ -227,14 +227,16 @@ export const useDeckStore = create<DeckStore>()(
 
       markSwiped: (deckId, cardId) =>
         set((s) => {
-          const existing = s.swipedIds[deckId] ?? [];
+          const all = s.swipedIds ?? {};
+          const existing = all[deckId] ?? [];
           if (existing.includes(cardId)) return s;
-          return { swipedIds: { ...s.swipedIds, [deckId]: [...existing, cardId] } };
+          return { swipedIds: { ...all, [deckId]: [...existing, cardId] } };
         }),
 
       resetSwiped: (deckId) =>
         set((s) => {
-          const next = { ...s.swipedIds };
+          const all = s.swipedIds ?? {};
+          const next = { ...all };
           delete next[deckId];
           return { swipedIds: next };
         }),
@@ -256,6 +258,15 @@ export const useDeckStore = create<DeckStore>()(
           return { ...s, profile: defaultProfile() } as DeckStore;
         }
         return s as DeckStore;
+      },
+      // Belt-and-suspenders: on rehydrate, ensure session-only fields the
+      // persisted state doesn't carry (swipedIds) are initialized to safe
+      // defaults. Older persisted shapes lack this field; code reads
+      // `state.swipedIds[deckId]` and would throw on undefined.
+      onRehydrateStorage: () => (state) => {
+        if (state && !state.swipedIds) {
+          state.swipedIds = {};
+        }
       },
     },
   ),
