@@ -483,9 +483,18 @@ function SwapModal({
   onInspect: (c: Card) => void;
 }) {
   const [customPick, setCustomPick] = useState(false);
+  const [preview, setPreview] = useState<{ card: Card; x: number; y: number } | null>(null);
   const entries = deckEntries(deck).filter(
     (e) => e.cardId !== deck.commanderId && e.cardId !== deck.partnerId,
   );
+
+  // Hover-preview helpers. Track the cursor so the preview tracks
+  // smoothly as the user moves between cards.
+  const showPreview = (card: Card, e: React.MouseEvent) =>
+    setPreview({ card, x: e.clientX, y: e.clientY });
+  const movePreview = (e: React.MouseEvent) =>
+    setPreview((p) => (p ? { ...p, x: e.clientX, y: e.clientY } : p));
+  const hidePreview = () => setPreview(null);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onCancel}>
@@ -495,6 +504,7 @@ function SwapModal({
           <p className="text-zinc-400 text-sm mt-1">
             Want to swap a card to make room for <span className="text-amber-300 font-semibold">{incoming.card.name}</span>?
           </p>
+          <p className="text-[10px] text-zinc-500 mt-1">Hover any card to preview it.</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -503,6 +513,9 @@ function SwapModal({
             <div
               className="bg-red-900/20 border border-red-800/40 rounded p-2 cursor-pointer hover:border-red-600/60 transition"
               onClick={() => onInspect(suggestedCut.card)}
+              onMouseEnter={(e) => showPreview(suggestedCut.card, e)}
+              onMouseMove={movePreview}
+              onMouseLeave={hidePreview}
             >
               {frontImage(suggestedCut.card, "small") && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -525,6 +538,9 @@ function SwapModal({
             <div
               className="bg-emerald-900/20 border border-emerald-800/40 rounded p-2 cursor-pointer hover:border-emerald-600/60 transition"
               onClick={() => onInspect(incoming.card)}
+              onMouseEnter={(e) => showPreview(incoming.card, e)}
+              onMouseMove={movePreview}
+              onMouseLeave={hidePreview}
             >
               {frontImage(incoming.card, "small") && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -568,6 +584,9 @@ function SwapModal({
                 <button
                   key={e.cardId}
                   onClick={() => onSwap(e.cardId)}
+                  onMouseEnter={(ev) => showPreview(e.card, ev)}
+                  onMouseMove={movePreview}
+                  onMouseLeave={hidePreview}
                   className="w-full flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-bg-raised transition text-left"
                 >
                   <span className="text-zinc-500 w-6 text-right">{e.card.cmc}</span>
@@ -580,6 +599,66 @@ function SwapModal({
           </div>
         )}
       </div>
+
+      {preview && <CardHoverPreview card={preview.card} cursorX={preview.x} cursorY={preview.y} />}
+    </div>
+  );
+}
+
+// Floating card-image preview anchored near the cursor. Positioned
+// fixed (so it can extend beyond the modal panel) and pointer-events:
+// none (so it doesn't intercept mouse events on the elements behind
+// it). Flips to the opposite side of the cursor if it would clip the
+// viewport, and clamps vertically to stay on-screen.
+function CardHoverPreview({
+  card,
+  cursorX,
+  cursorY,
+}: {
+  card: Card;
+  cursorX: number;
+  cursorY: number;
+}) {
+  const img = frontImage(card, "large") ?? frontImage(card, "normal");
+  if (!img) return null;
+
+  // Card image is rendered at 320px wide; "large" Scryfall faces are
+  // 488×680, so 320 wide → ~446 tall at 5:7. We use 320×448 for math.
+  const PREVIEW_W = 320;
+  const PREVIEW_H = 448;
+  const GAP = 18;
+  const VIEWPORT_PAD = 8;
+
+  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+
+  // Prefer the right of the cursor; flip to the left if there's no room.
+  let left = cursorX + GAP;
+  if (left + PREVIEW_W + VIEWPORT_PAD > vw) {
+    left = cursorX - GAP - PREVIEW_W;
+  }
+  if (left < VIEWPORT_PAD) left = VIEWPORT_PAD;
+
+  // Vertical: center on cursor, clamped to viewport.
+  let top = cursorY - PREVIEW_H / 2;
+  if (top < VIEWPORT_PAD) top = VIEWPORT_PAD;
+  if (top + PREVIEW_H + VIEWPORT_PAD > vh) {
+    top = vh - PREVIEW_H - VIEWPORT_PAD;
+  }
+
+  return (
+    <div
+      className="fixed pointer-events-none z-[60]"
+      style={{ left, top, width: PREVIEW_W }}
+      aria-hidden
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={img}
+        alt=""
+        draggable={false}
+        className="w-full block rounded-xl shadow-2xl ring-1 ring-amber-700/40"
+      />
     </div>
   );
 }
