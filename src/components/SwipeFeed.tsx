@@ -17,6 +17,11 @@ interface Props {
 
 const SWIPE_THRESHOLD = 110; // px
 
+// Stable reference for the "no swipes yet" case. Returning `[]` from a
+// Zustand selector creates a new array each call, which trips React's
+// "getSnapshot should be cached" guard and infinite-loops the render.
+const EMPTY_IDS: readonly string[] = Object.freeze([]);
+
 interface SwapPrompt {
   incoming: Recommendation;
   suggestedCut: DeckEntry;
@@ -24,9 +29,10 @@ interface SwapPrompt {
 
 export function SwipeFeed({ deck, onInspect }: Props) {
   const { addCard, removeCard, markSwiped, resetSwiped } = useDeckStore();
-  // Defensive ?? against undefined swipedIds — older persisted state may
-  // not have this field even after the rehydrate hook normalizes it.
-  const swipedIds = useDeckStore((s) => s.swipedIds?.[deck.id] ?? []);
+  // Subscribe only to this deck's swiped-ids array. Falls back to a
+  // single frozen EMPTY_IDS so the selector returns a stable reference
+  // when the field is empty / not initialized.
+  const swipedIds = useDeckStore((s) => s.swipedIds?.[deck.id] ?? EMPTY_IDS);
   const commander = deck.commanderId ? deck.entries[deck.commanderId]?.card : undefined;
   const partner = deck.partnerId ? deck.entries[deck.partnerId]?.card : undefined;
   const [recs, setRecs] = useState<Recommendation[]>([]);

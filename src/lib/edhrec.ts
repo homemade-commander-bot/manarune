@@ -46,7 +46,12 @@ export interface EdhrecCommanderPage {
 }
 
 function slug(name: string): string {
-  return name
+  // Strip the back face of double-faced cards. Scryfall returns DFC names
+  // joined with " // " (e.g. "Tergrid, God of Fright // Tergrid's Lantern"),
+  // but EDHREC's URL only uses the front face. Without this, DFC
+  // commanders 404 the proxy.
+  const frontFace = name.split("//")[0]?.trim() ?? name;
+  return frontFace
     .toLowerCase()
     .replace(/[,'’"]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
