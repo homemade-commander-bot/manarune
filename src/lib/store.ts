@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Card, Deck, DeckEntry } from "./types";
 import { categorize } from "./analytics";
+import { isUnlimitedQuantity } from "./commander-rules";
 
 const newDeckId = () => `deck_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -160,6 +161,18 @@ export const useDeckStore = create<DeckStore>()(
         set((s) => {
           const deck = s.decks[deckId];
           if (!deck) return s;
+          // Singleton enforcement (CR 903.5b): unless the card is a basic
+          // land or an explicit "any number" card (Persistent Petitioners,
+          // Relentless Rats, etc.), a deck may have only one card with a
+          // given English name. If a different printing of the same card
+          // is already in the deck, treat the new add as a no-op rather
+          // than creating a second entry that the validator will flag.
+          if (!isUnlimitedQuantity(card)) {
+            const sameName = Object.values(deck.entries).find(
+              (e) => e.card.name === card.name && e.cardId !== card.id,
+            );
+            if (sameName) return s;
+          }
           const existing = deck.entries[card.id];
           const next: DeckEntry = existing
             ? { ...existing, quantity: existing.quantity + quantity }
@@ -244,7 +257,7 @@ export const useDeckStore = create<DeckStore>()(
     {
       name: "mtg-commander-deck-builder",
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       // swipedIds is intentionally session-only (not persisted) — it's a
       // "don't show me this card twice this session" filter, not user data.
       partialize: (state) => ({
@@ -253,9 +266,21 @@ export const useDeckStore = create<DeckStore>()(
         activeDeckId: state.activeDeckId,
       }),
       migrate: (state: unknown, fromVersion: number) => {
-        const s = (state ?? {}) as Partial<DeckStore>;
+        let s = (state ?? {}) as Partial<DeckStore>;
         if (fromVersion < 2 && !s.profile) {
-          return { ...s, profile: defaultProfile() } as DeckStore;
+          s = { ...s, profile: defaultProfile() };
+        }
+        if (fromVersion < 3 && s.decks) {
+          // v3 migration: dedupe duplicate-by-name entries that pre-date
+          // the singleton check in addCard. Caused by the seedNewDeckStaples
+          // race where two simultaneous calls each fetched a Sol Ring and
+          // both added before either had landed in the store. Keeps the
+          // first occurrence of each name; drops subsequent duplicates.
+          const decks: Record<string, Deck> = {};
+          for (const [id, deck] of Object.entries(s.decks)) {
+            decks[id] = dedupeDeckByName(deck);
+          }
+          s = { ...s, decks };
         }
         return s as DeckStore;
       },
@@ -274,4 +299,37 @@ export const useDeckStore = create<DeckStore>()(
 
 export function activeDeck(s: DeckStore): Deck | null {
   return s.activeDeckId ? (s.decks[s.activeDeckId] ?? null) : null;
+}
+
+// Drop duplicate-by-name entries from a deck (CR 903.5b), keeping the
+// first occurrence by insertion order. Basics and "any number" cards
+// (Relentless Rats, etc.) are exempt because the rule allows multiples.
+// Used by the v3 migration and also exported so we can call it after a
+// suspicious bulk-add.
+export function dedupeDeckByName(deck: Deck): Deck {
+  if (!deck || !deck.entries) return deck;
+  const seen = new Set<string>();
+  const next: Record<string, DeckEntry> = {};
+  for (const [id, entry] of Object.entries(deck.entries)) {
+    if (isUnlimitedQuantity(entry.card)) {
+      next[id] = entry;
+      continue;
+    }
+    if (seen.has(entry.card.name)) continue;
+    seen.add(entry.card.name);
+    next[id] = entry;
+  }
+  // If commander/partner refs pointed at a dropped entry, repoint them
+  // at whichever entry of that name survived.
+  let commanderId = deck.commanderId;
+  let partnerId = deck.partnerId;
+  if (commanderId && !next[commanderId]) {
+    const cmd = Object.values(next).find((e) => e.cardId === commanderId);
+    commanderId = cmd?.cardId;
+  }
+  if (partnerId && !next[partnerId]) {
+    const p = Object.values(next).find((e) => e.cardId === partnerId);
+    partnerId = p?.cardId;
+  }
+  return { ...deck, entries: next, commanderId, partnerId };
 }
