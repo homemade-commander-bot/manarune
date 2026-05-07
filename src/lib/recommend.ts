@@ -77,44 +77,147 @@ function colorIdentityQuery(allowed: Set<Color>): string {
   return `id<=${colorIdentityString(allowed).toLowerCase() || "c"}`;
 }
 
-// Curated, format-staple seed queries by role. Always filtered through
-// Scryfall with the commander's color identity, so nothing illegal slips in.
-export const STAPLES: { role: string; query: string; reason: string }[] = [
-  { role: "Mana Rocks", query: "(o:'add {C}' or o:'add one mana' or o:'add two mana') t:artifact cmc<=3", reason: "Fast colorless mana" },
-  { role: "Ramp", query: "o:'search your library for' o:'land card' (t:sorcery or t:instant) cmc<=3", reason: "Land ramp" },
-  { role: "Ramp", query: "(t:creature o:'search your library for a' o:'land card') cmc<=3", reason: "Ramp creature" },
-  { role: "Card Draw", query: "(o:'draw three cards' or o:'draw two cards' or o:'draw a card for each')", reason: "Card advantage" },
-  { role: "Card Draw", query: "o:'whenever you' o:'draw a card' t:enchantment", reason: "Repeatable draw" },
-  { role: "Removal", query: "(o:'destroy target creature' or o:'exile target creature') (t:instant or t:sorcery) cmc<=3", reason: "Single-target removal" },
-  { role: "Removal", query: "(o:'destroy target permanent' or o:'exile target permanent') (t:instant or t:sorcery)", reason: "Flex removal" },
-  { role: "Board Wipe", query: "(o:'destroy all creatures' or o:'each creature gets -' or o:'exile all creatures')", reason: "Mass removal" },
-  { role: "Board Wipe", query: "(o:'destroy all nonland permanents' or o:'exile all permanents')", reason: "Mass reset" },
-  { role: "Lands", query: "t:land o:'add one mana of any color'", reason: "Color-fixing land" },
-  { role: "Lands", query: "t:land o:'enters the battlefield tapped' o:'add'", reason: "Dual land" },
-  { role: "Protection", query: "o:'hexproof' (t:instant or t:enchantment) cmc<=3", reason: "Commander protection" },
-  { role: "Counterspells", query: "o:'counter target spell' t:instant cmc<=3", reason: "Stack interaction" },
-  { role: "Tutors", query: "o:'search your library for' o:card -o:land cmc<=4", reason: "Card selection" },
+// Curated Commander format staples, by color. These are the cards the
+// format actually treats as "automatic includes" — high-frequency picks
+// across nearly every deck of that color, regardless of strategy. The
+// previous heuristic-query version of this list returned generic results
+// (e.g. any "destroy target creature" instant) which under-surfaced the
+// actual canonical staples like Swords to Plowshares, Counterspell,
+// Lightning Bolt, Cultivate, etc.
+//
+// Filtered downstream by `card.color_identity ⊆ allowed` so a mono-blue
+// deck never sees Lightning Bolt. Lands are deliberately excluded —
+// the LandOptimizer handles those separately.
+type StapleGroup = { role: string; cards: string[] };
+
+const STAPLES_COLORLESS: StapleGroup[] = [
+  { role: "Ramp", cards: [
+    "Sol Ring", "Arcane Signet", "Mind Stone", "Commander's Sphere",
+    "Wayfarer's Bauble", "Solemn Simulacrum", "Burnished Hart",
+    "Thought Vessel", "Fellwar Stone",
+  ] },
+  { role: "Card Draw", cards: ["Skullclamp", "Sensei's Divining Top", "Mind's Eye"] },
+  { role: "Protection", cards: ["Lightning Greaves", "Swiftfoot Boots"] },
 ];
 
+const STAPLES_W: StapleGroup[] = [
+  { role: "Removal", cards: ["Swords to Plowshares", "Path to Exile", "Generous Gift"] },
+  { role: "Board Wipe", cards: ["Wrath of God", "Day of Judgment", "Farewell", "Cleansing Nova", "Akroma's Vengeance"] },
+  { role: "Card Advantage", cards: ["Esper Sentinel", "Smothering Tithe", "Land Tax"] },
+  { role: "Tutor", cards: ["Enlightened Tutor"] },
+  { role: "Protection", cards: ["Teferi's Protection", "Flawless Maneuver"] },
+];
+
+const STAPLES_U: StapleGroup[] = [
+  { role: "Counterspell", cards: [
+    "Counterspell", "Negate", "Swan Song", "An Offer You Can't Refuse",
+    "Force of Will", "Force of Negation", "Fierce Guardianship", "Mana Drain", "Pact of Negation",
+  ] },
+  { role: "Card Advantage", cards: [
+    "Rhystic Study", "Mystic Remora", "Consecrated Sphinx",
+    "Brainstorm", "Ponder", "Preordain",
+  ] },
+  { role: "Removal", cards: ["Cyclonic Rift", "Pongify", "Rapid Hybridization", "Reality Shift"] },
+  { role: "Tutor", cards: ["Mystical Tutor"] },
+];
+
+const STAPLES_B: StapleGroup[] = [
+  { role: "Removal", cards: ["Toxic Deluge", "Damnation", "Deadly Rollick", "Dismember", "Doom Blade", "Go for the Throat", "Feed the Swarm"] },
+  { role: "Tutor", cards: ["Demonic Tutor", "Vampiric Tutor", "Diabolic Intent"] },
+  { role: "Reanimation", cards: ["Reanimate", "Animate Dead", "Necromancy", "Victimize"] },
+  { role: "Card Draw", cards: [
+    "Necropotence", "Phyrexian Arena", "Bolas's Citadel",
+    "Black Market Connections", "Sign in Blood", "Read the Bones", "Bone Miser",
+  ] },
+  { role: "Win Condition", cards: ["Gray Merchant of Asphodel", "Ad Nauseam", "Exsanguinate"] },
+  { role: "Ramp", cards: ["Dark Ritual", "Cabal Ritual"] },
+];
+
+const STAPLES_R: StapleGroup[] = [
+  { role: "Removal", cards: ["Chaos Warp", "Vandalblast", "Blasphemous Act", "Abrade", "By Force"] },
+  { role: "Burn", cards: ["Lightning Bolt"] },
+  { role: "Card Draw", cards: ["Wheel of Fortune", "Faithless Looting", "Reforge the Soul", "Magus of the Wheel"] },
+  { role: "Tutor", cards: ["Gamble"] },
+  { role: "Ramp", cards: ["Dockside Extortionist", "Jeska's Will"] },
+  { role: "Recursion", cards: ["Past in Flames", "Underworld Breach"] },
+  { role: "Protection", cards: ["Deflecting Swat", "Red Elemental Blast", "Pyroblast"] },
+];
+
+const STAPLES_G: StapleGroup[] = [
+  { role: "Ramp", cards: [
+    "Cultivate", "Kodama's Reach", "Three Visits", "Nature's Lore",
+    "Farseek", "Rampant Growth", "Birds of Paradise", "Llanowar Elves",
+    "Sakura-Tribe Elder", "Wood Elves", "Skyshroud Claim", "Explosive Vegetation",
+  ] },
+  { role: "Removal", cards: ["Beast Within", "Krosan Grip", "Reclamation Sage", "Force of Vigor", "Nature's Claim"] },
+  { role: "Card Advantage", cards: ["Sylvan Library", "Greater Good", "Beast Whisperer", "Guardian Project", "Harmonize"] },
+  { role: "Tutor", cards: ["Worldly Tutor", "Survival of the Fittest", "Green Sun's Zenith"] },
+  { role: "Recursion", cards: ["Eternal Witness", "Regrowth"] },
+  { role: "Protection", cards: ["Heroic Intervention", "Veil of Summer"] },
+];
+
+export const STAPLES_BY_COLOR: { C: StapleGroup[]; W: StapleGroup[]; U: StapleGroup[]; B: StapleGroup[]; R: StapleGroup[]; G: StapleGroup[] } = {
+  C: STAPLES_COLORLESS,
+  W: STAPLES_W,
+  U: STAPLES_U,
+  B: STAPLES_B,
+  R: STAPLES_R,
+  G: STAPLES_G,
+};
+
 export async function staplesFor(allowed: Set<Color>, max = 80): Promise<Recommendation[]> {
-  const out: Recommendation[] = [];
-  const idQ = colorIdentityQuery(allowed);
-  const seen = new Set<string>();
-  let rank = 1;
-  for (const s of STAPLES) {
-    try {
-      const list = await scryfall.searchCards(`${s.query} ${idQ} legal:commander`, { order: "edhrec" });
-      for (const c of list.data.slice(0, 10)) {
-        if (seen.has(c.id)) continue;
-        seen.add(c.id);
-        out.push({ card: c, reason: `${s.role}: ${s.reason}`, source: "staple", section: s.role, rank: rank++ });
+  // Build the candidate set: colorless staples (always) + per-color
+  // staples for every color in the allowed identity. Each card is
+  // tagged with its role so the recommendation reason is meaningful.
+  const namesNeeded: string[] = [];
+  const nameToRole = new Map<string, string>();
+  const seenName = new Set<string>();
+  const enroll = (groups: StapleGroup[]) => {
+    for (const g of groups) {
+      for (const name of g.cards) {
+        if (seenName.has(name)) continue;
+        seenName.add(name);
+        namesNeeded.push(name);
+        nameToRole.set(name, g.role);
       }
-      if (out.length >= max) break;
-    } catch {
-      // ignore individual failures
     }
+  };
+  enroll(STAPLES_BY_COLOR.C);
+  if (allowed.has("W")) enroll(STAPLES_BY_COLOR.W);
+  if (allowed.has("U")) enroll(STAPLES_BY_COLOR.U);
+  if (allowed.has("B")) enroll(STAPLES_BY_COLOR.B);
+  if (allowed.has("R")) enroll(STAPLES_BY_COLOR.R);
+  if (allowed.has("G")) enroll(STAPLES_BY_COLOR.G);
+
+  if (namesNeeded.length === 0) return [];
+
+  const out: Recommendation[] = [];
+  let rank = 1;
+  try {
+    const fetched = await scryfall.collection(
+      namesNeeded.map((name) => ({ name })),
+    );
+    for (const card of fetched) {
+      // Defensive filter: Scryfall name resolution can occasionally
+      // return a card whose color identity exceeds the deck's (e.g.
+      // a reprint with a flavor word that bumps identity). Skip those.
+      if (card.legalities.commander !== "legal") continue;
+      if (card.color_identity.some((ci) => !allowed.has(ci))) continue;
+      const role = nameToRole.get(card.name) ?? "Staple";
+      out.push({
+        card,
+        reason: `${role}: format staple`,
+        source: "staple",
+        section: role,
+        rank: rank++,
+      });
+      if (out.length >= max) break;
+    }
+  } catch {
+    // Network or upstream failure — return whatever we have so the
+    // rest of the recommendation pipeline still works.
   }
-  return out.slice(0, max);
+  return out;
 }
 
 // Theme-specific Scryfall queries when we detect a theme.
