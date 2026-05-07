@@ -4,18 +4,21 @@ import { manaCurve, colorPips, landCount, totalCards, deckPriceUsd, averageCmc, 
 import { validateDeck } from "@/lib/commander-rules";
 import type { Deck, DeckCategory } from "@/lib/types";
 
-// Color per card-type. Tuned for visual distinctness on the dark panel
-// background while staying within the existing palette family.
+// Color per card-type. Tuned for maximum hue/saturation/temperature
+// contrast on the dark panel background. Each pair must be unambiguously
+// distinct — in particular Artifact (cool light steel) and Land (deep
+// warm earth) are placed at opposite ends of the cool→warm spectrum so
+// they can't be confused.
 const TYPE_COLORS: Record<DeckCategory, string> = {
-  Commander: "#f59e0b",   // amber-500 — hero
-  Creature: "#10b981",    // emerald-500
-  Planeswalker: "#a855f7", // purple-500
-  Battle: "#f43f5e",      // rose-500
-  Instant: "#0ea5e9",     // sky-500
-  Sorcery: "#fb923c",     // orange-400
-  Artifact: "#a1a1aa",    // zinc-400
-  Enchantment: "#facc15", // yellow-400
-  Land: "#78716c",        // stone-500
+  Commander: "#f97316",   // orange-500 — hero, pure orange
+  Creature: "#22c55e",    // green-500 — saturated life green
+  Planeswalker: "#c084fc", // purple-400 — vivid violet
+  Battle: "#ec4899",      // pink-500 — magenta (distinct from red)
+  Instant: "#38bdf8",     // sky-400 — bright cyan
+  Sorcery: "#dc2626",     // red-600 — pure blood red
+  Artifact: "#cbd5e1",    // slate-300 — cool light steel/silver
+  Enchantment: "#fde047", // yellow-300 — pure lemon (cooler than amber)
+  Land: "#78350f",        // amber-900 — deep warm earth brown
 };
 
 // Order in which legend entries (and pie slices) appear. Commander
