@@ -52,6 +52,14 @@ body {
 .mana-C { background: #cac5c0; color: #3a3a3a; }
 .mana-X, .mana-N { background: #d9d2cc; color: #2a2a2a; }
 
+/* Solid background swatches (no padding/border) for proportional bars
+   like the color-pip distribution in DeckStats. */
+.mana-bg-W { background: #fffbd5; }
+.mana-bg-U { background: #aae0fa; }
+.mana-bg-B { background: #6b6361; }
+.mana-bg-R { background: #f9aa8f; }
+.mana-bg-G { background: #9bd3ae; }
+
 .card-shadow {
   box-shadow: 0 1px 0 rgba(255,255,255,0.04), 0 8px 22px rgba(0,0,0,0.5);
 }
