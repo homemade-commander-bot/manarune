@@ -8,6 +8,7 @@ import { frontImage } from "@/lib/scryfall";
 import { totalCards, deckEntries } from "@/lib/analytics";
 import { suggestCut } from "@/lib/lands";
 import { comboPartnersInDeck } from "@/lib/brackets";
+import { deckComposition, deficitTierForCard } from "@/lib/composition";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
 
 interface Props {
@@ -68,8 +69,10 @@ export function SwipeFeed({ deck, onInspect }: Props) {
   }, [commander?.id, partner?.id]);
 
   // Filter: skip cards already in the deck, already swiped this session,
-  // or below the synergy threshold (if synergyOnly is on).
+  // or below the synergy threshold (if synergyOnly is on). Then bias by
+  // deck composition: cards in types the deck is short on bubble up.
   const swipedSet = useMemo(() => new Set(swipedIds), [swipedIds]);
+  const composition = useMemo(() => deckComposition(deck), [deck]);
   const queue = useMemo(() => {
     let out = recs.filter((r) => !deck.entries[r.card.id] && !swipedSet.has(r.card.id));
     if (synergyOnly) {
@@ -78,8 +81,16 @@ export function SwipeFeed({ deck, onInspect }: Props) {
         out = out.filter((r) => (r.synergy ?? 0) >= 0.05 || r.source !== "edhrec");
       }
     }
+    // Stable sort by deficit tier (3 = severely under, 0 = saturated).
+    // Within a tier the existing order — which already encodes the
+    // synergy-bucket shuffle from commanderRecommendations — is preserved.
+    // Result: a Light-Paws deck at 6/28 creatures sees creature recs first,
+    // then once creatures fill in, instants/sorceries take over, etc.
+    out = [...out].sort((a, b) =>
+      deficitTierForCard(b.card, composition) - deficitTierForCard(a.card, composition),
+    );
     return out;
-  }, [recs, deck.entries, swipedSet, synergyOnly]);
+  }, [recs, deck.entries, swipedSet, synergyOnly, composition]);
 
   // Always operate on the leading edge of the queue. Once we mark a card
   // as swiped, the filter pulls it out and queue[0] becomes the next card.

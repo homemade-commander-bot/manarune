@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDeckStore } from "@/lib/store";
@@ -7,11 +8,13 @@ import { totalCards, deckPriceUsd } from "@/lib/analytics";
 import { validateDeck, colorIdentityString, commanderColorIdentity } from "@/lib/commander-rules";
 import { frontImage } from "@/lib/scryfall";
 import { ColorIdentityPips } from "./ManaCost";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 export function DeckLibrary() {
   const router = useRouter();
   const { profile, decks, createDeck, deleteDeck, duplicateDeck, setActiveDeck } = useDeckStore();
   const list = Object.values(decks).sort((a, b) => b.updatedAt - a.updatedAt);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   function startNew() {
     const id = createDeck("Untitled Deck");
@@ -136,9 +139,7 @@ export function DeckLibrary() {
                       ⎘
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm(`Delete "${deck.name}"?`)) deleteDeck(deck.id);
-                      }}
+                      onClick={() => setPendingDelete({ id: deck.id, name: deck.name })}
                       className="btn btn-ghost text-xs py-1 hover:!text-red-400"
                       title="Delete"
                     >
@@ -151,6 +152,20 @@ export function DeckLibrary() {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete deck?"
+        message={pendingDelete ? `"${pendingDelete.name}" will be permanently removed. This cannot be undone.` : ""}
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        destructive
+        onConfirm={() => {
+          if (pendingDelete) deleteDeck(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

@@ -159,6 +159,21 @@ export const KNOWN_COMBO_PIECES: { name: string; partners: string[] }[] = [
   { name: "Palinchron", partners: ["Deadeye Navigator"] },
   { name: "Food Chain", partners: ["Eternal Scourge", "Misthollow Griffin", "Squee, the Immortal"] },
   { name: "Eternal Scourge", partners: ["Food Chain"] },
+  // Exquisite Blood lifegain ↔ damage loops. Several "lose-a-life-on-
+  // gain-life" effects all combo with Exquisite Blood for an instant
+  // win once one opponent takes any damage.
+  { name: "Exquisite Blood", partners: [
+    "Sanguine Bond",
+    "Vito, Thorn of the Dusk Rose",
+    "Cliffhaven Vampire",
+    "Marauding Blight-Priest",
+    "Defiant Bloodlord",
+  ] },
+  { name: "Sanguine Bond", partners: ["Exquisite Blood"] },
+  { name: "Vito, Thorn of the Dusk Rose", partners: ["Exquisite Blood"] },
+  { name: "Cliffhaven Vampire", partners: ["Exquisite Blood"] },
+  { name: "Marauding Blight-Priest", partners: ["Exquisite Blood"] },
+  { name: "Defiant Bloodlord", partners: ["Exquisite Blood"] },
 ];
 
 // Returns a map of cardName → list of partner names already present in the

@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { useDeckStore } from "@/lib/store";
 import { toDeckText, toMarkdown } from "@/lib/export";
 import type { Deck } from "@/lib/types";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 export function DeckActions({ deck }: { deck: Deck }) {
   const router = useRouter();
   const { renameDeck, deleteDeck } = useDeckStore();
   const [open, setOpen] = useState<null | "txt" | "md">(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   function copy(text: string) {
     void navigator.clipboard.writeText(text);
@@ -37,16 +39,26 @@ export function DeckActions({ deck }: { deck: Deck }) {
         <button className="btn btn-ghost" onClick={() => setOpen("md")}>Export .md</button>
         <button
           className="btn btn-danger ml-auto"
-          onClick={() => {
-            if (confirm(`Delete "${deck.name}"? This cannot be undone.`)) {
-              deleteDeck(deck.id);
-              router.push("/");
-            }
-          }}
+          onClick={() => setConfirmDelete(true)}
         >
           Delete
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete deck?"
+        message={`"${deck.name}" will be permanently removed. This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        destructive
+        onConfirm={() => {
+          deleteDeck(deck.id);
+          setConfirmDelete(false);
+          router.push("/");
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
 
       {open && (
         <div className="bg-bg-raised border border-bg-border rounded p-2">

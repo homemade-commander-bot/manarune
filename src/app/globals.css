@@ -30,6 +30,17 @@ body {
 ::-webkit-scrollbar-thumb { background: #2d3340; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #3d4555; }
 
+/* Modal entrance animations — used by ConfirmDialog and any other
+   panels that fade/pop in over a backdrop. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  0% { opacity: 0; transform: translateY(8px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* Mana symbols */
 .mana-symbol {
   display: inline-flex;
