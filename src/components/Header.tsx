@@ -24,7 +24,6 @@ export function Header() {
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           <Link href="/" className={nav("/")}>My Decks</Link>
-          <Link href="/commanders" className={nav("/commanders")}>Commanders</Link>
           <Link href="/build" className={nav("/build")}>Builder</Link>
           <Link href="/collection" className={nav("/collection")}>Collection</Link>
           <Link href="/rules" className={nav("/rules")}>Rules</Link>

@@ -49,7 +49,13 @@ export function CommanderBanner({ deck, onInspectCommander }: { deck: Deck; onIn
             </span>
           </div>
         </div>
-        <Link href="/commanders" className="btn btn-ghost text-xs">Change</Link>
+        <Link
+          href={`/commanders?replace=${encodeURIComponent(deck.id)}`}
+          className="btn btn-ghost text-xs"
+          title="Replace this deck's commander (keeps the rest of your deck intact)"
+        >
+          Change
+        </Link>
       </div>
     </div>
   );

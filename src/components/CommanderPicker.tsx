@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { scryfall } from "@/lib/scryfall";
 import { searchCommanders } from "@/lib/recommend";
 import { canBeCommander } from "@/lib/commander-rules";
@@ -10,6 +10,7 @@ import { seedNewDeckStaples } from "@/lib/lands";
 import { CardThumb } from "./CardThumb";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
 import { CardHoverLayer, hoverProps, useCardHover } from "./CardHoverPreview";
+import { ConfirmDialog } from "./ConfirmDialog";
 import type { Card } from "@/lib/types";
 
 const COLOR_FILTERS: { label: string; value: string; color: string }[] = [
@@ -22,15 +23,27 @@ const COLOR_FILTERS: { label: string; value: string; color: string }[] = [
 
 export function CommanderPicker() {
   const router = useRouter();
-  const { activeDeckId, createDeck, setCommander } = useDeckStore();
+  const params = useSearchParams();
+  // Intent flag: ?replace=<deckId> means the user came from the
+  // CommanderBanner "Change" button on a specific deck. Without it,
+  // picking a commander either fills in an empty active deck or
+  // creates a new deck — never silently overwrites an existing
+  // commander on a deck the user has been working on.
+  const replaceDeckId = params?.get("replace") ?? null;
+
+  const { activeDeckId, createDeck, setCommander, setActiveDeck } = useDeckStore();
+  const decks = useDeckStore((s) => s.decks);
   const [query, setQuery] = useState("");
   const [colors, setColors] = useState<string[]>([]);
   const [results, setResults] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autocomplete, setAutocomplete] = useState<string[]>([]);
+  const [pendingReplace, setPendingReplace] = useState<Card | null>(null);
   const hover = useCardHover();
   const debounce = useRef<number | null>(null);
+
+  const replaceTarget = replaceDeckId ? decks[replaceDeckId] : null;
 
   // Run an initial "popular commanders" search so the page isn't empty.
   useEffect(() => {
@@ -80,22 +93,55 @@ export function CommanderPicker() {
     void runSearch(query, next);
   }
 
-  async function pick(card: Card) {
-    if (!canBeCommander(card)) return;
-    const id = activeDeckId ?? createDeck(card.name);
-    // Auto-name placeholder decks after the chosen commander.
-    const deck = useDeckStore.getState().decks[id];
+  // Apply a commander pick to a specific deck — assigns the commander,
+  // auto-names placeholder decks, fire-and-forget seeds Sol Ring +
+  // Arcane Signet for new decks, then navigates to /build.
+  function applyToDeck(deckId: string, card: Card) {
+    const deck = useDeckStore.getState().decks[deckId];
     if (deck && /^(Untitled Deck|New Deck)$/i.test(deck.name)) {
-      useDeckStore.getState().renameDeck(id, card.name);
+      useDeckStore.getState().renameDeck(deckId, card.name);
     }
-    setCommander(id, card);
-    // Seed Sol Ring + Arcane Signet for new decks. Fire-and-forget so the user
-    // isn't waiting on Scryfall — staples appear as soon as they resolve.
-    const fresh = useDeckStore.getState().decks[id];
+    setCommander(deckId, card);
+    setActiveDeck(deckId);
+    const fresh = useDeckStore.getState().decks[deckId];
     if (fresh) {
-      void seedNewDeckStaples(fresh, (c) => useDeckStore.getState().addCard(id, c));
+      void seedNewDeckStaples(fresh, (c) => useDeckStore.getState().addCard(deckId, c));
     }
     router.push("/build");
+  }
+
+  async function pick(card: Card) {
+    if (!canBeCommander(card)) return;
+
+    // Path 1 — explicit replace flow: came from CommanderBanner "Change"
+    // button on a specific deck. Confirm before overwriting.
+    if (replaceDeckId && decks[replaceDeckId]) {
+      setPendingReplace(card);
+      return;
+    }
+
+    // Path 2 — fill an empty active deck. This covers the new-deck
+    // flows (Header "+ New Deck", DeckLibrary "+ New Deck", empty
+    // /build "Choose Commander" button) where a placeholder deck was
+    // created upstream and is sitting commander-less.
+    const active = activeDeckId ? useDeckStore.getState().decks[activeDeckId] : undefined;
+    if (active && !active.commanderId) {
+      applyToDeck(active.id, card);
+      return;
+    }
+
+    // Path 3 — no active deck OR active deck already has a commander.
+    // Either way, the user landed here via a non-replace path, so
+    // creating a new deck is the safe default. NEVER silently
+    // overwrite a working deck's commander.
+    const newId = createDeck(card.name);
+    applyToDeck(newId, card);
+  }
+
+  function confirmReplace() {
+    if (!pendingReplace || !replaceDeckId) return;
+    applyToDeck(replaceDeckId, pendingReplace);
+    setPendingReplace(null);
   }
 
   const headerText = useMemo(
@@ -108,8 +154,30 @@ export function CommanderPicker() {
 
   return (
     <div className="max-w-[1600px] mx-auto px-4 py-6 space-y-6">
+      {/* In replace mode (came from "Change" button on a deck), show a
+          persistent banner so the user knows their pick will overwrite,
+          not start a fresh deck. */}
+      {replaceTarget && (
+        <div className="panel p-3 border-amber-700/40 bg-amber-900/10 flex items-center gap-2 text-sm">
+          <span className="text-amber-300">⚠</span>
+          <span className="flex-1">
+            Replacing the commander on{" "}
+            <span className="font-semibold text-amber-300">{replaceTarget.name}</span>.
+            Your existing cards stay in the deck; only the commander changes.
+          </span>
+          <button
+            onClick={() => router.push("/build")}
+            className="text-xs text-zinc-400 hover:text-amber-300 underline"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       <section className="panel p-6">
-        <h1 className="font-display text-3xl text-amber-400">Choose Your Commander</h1>
+        <h1 className="font-display text-3xl text-amber-400">
+          {replaceTarget ? "Pick a new commander" : "Choose Your Commander"}
+        </h1>
         <p className="text-zinc-400 mt-1 text-sm">
           Search by name, theme, or keyword. Color filters limit by color identity (CR 903.4). Only legal commanders are shown.
         </p>
@@ -199,6 +267,25 @@ export function CommanderPicker() {
           )}
         </div>
       </section>
+
+      <ConfirmDialog
+        open={pendingReplace !== null}
+        title="Replace commander?"
+        message={
+          pendingReplace && replaceTarget
+            ? `${replaceTarget.name} currently runs ${
+                replaceTarget.commanderId
+                  ? replaceTarget.entries[replaceTarget.commanderId]?.card.name ?? "a commander"
+                  : "no commander"
+              }. Switching to ${pendingReplace.name} keeps the rest of your deck intact, but cards outside the new color identity will become illegal until removed.`
+            : ""
+        }
+        confirmLabel="Replace"
+        cancelLabel="Keep current"
+        destructive
+        onConfirm={confirmReplace}
+        onCancel={() => setPendingReplace(null)}
+      />
 
       <CardHoverLayer hover={hover} />
     </div>
