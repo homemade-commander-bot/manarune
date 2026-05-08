@@ -13,13 +13,16 @@ interface Props {
 }
 
 export function CardDetail({ card, deckId, onClose }: Props) {
-  const { addCard, removeCard, setCommander, decks } = useDeckStore();
+  const { addCard, removeCard, setCommander, decks, addToCollection, removeFromCollection } =
+    useDeckStore();
+  const collectionEntry = useDeckStore((s) => (card ? s.collection?.[card.id] : undefined));
   const [rulings, setRulings] = useState<Ruling[] | null>(null);
   const [loadingRulings, setLoadingRulings] = useState(false);
   const [showBack, setShowBack] = useState(false);
 
   const inDeck = !!(card && deckId && decks[deckId]?.entries[card.id]);
   const isCommander = !!(card && deckId && decks[deckId]?.commanderId === card.id);
+  const ownedCount = (collectionEntry?.quantity ?? 0) + (collectionEntry?.foilQuantity ?? 0);
 
   useEffect(() => {
     setRulings(null);
@@ -124,6 +127,29 @@ export function CardDetail({ card, deckId, onClose }: Props) {
                     </button>
                   )}
                 </>
+              )}
+              <button
+                onClick={() => addToCollection(card, 1, false)}
+                className="btn btn-ghost"
+                title="Add 1 non-foil copy to your collection"
+              >
+                + Collection {ownedCount > 0 && <span className="ml-1 text-amber-300">({ownedCount} owned)</span>}
+              </button>
+              <button
+                onClick={() => addToCollection(card, 1, true)}
+                className="btn btn-ghost"
+                title="Add 1 foil copy to your collection"
+              >
+                + Foil
+              </button>
+              {ownedCount > 0 && (
+                <button
+                  onClick={() => removeFromCollection(card.id, 1, false)}
+                  className="btn btn-ghost text-zinc-400 hover:!text-red-400"
+                  title="Remove 1 from your collection"
+                >
+                  − Collection
+                </button>
               )}
               {safeHttpUrl(card.purchase_uris?.tcgplayer) && (
                 <a href={safeHttpUrl(card.purchase_uris?.tcgplayer)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">

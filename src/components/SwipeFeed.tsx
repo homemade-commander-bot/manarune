@@ -11,6 +11,7 @@ import { comboPartnersInDeck } from "@/lib/brackets";
 import { deckComposition, deficitTierForCard } from "@/lib/composition";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
 import { CardHoverPreview } from "./CardHoverPreview";
+import { ownedCardNames } from "@/lib/store";
 
 interface Props {
   deck: Deck;
@@ -35,6 +36,8 @@ export function SwipeFeed({ deck, onInspect }: Props) {
   // single frozen EMPTY_IDS so the selector returns a stable reference
   // when the field is empty / not initialized.
   const swipedIds = useDeckStore((s) => s.swipedIds?.[deck.id] ?? EMPTY_IDS);
+  const collection = useDeckStore((s) => s.collection);
+  const ownedNames = useMemo(() => ownedCardNames(collection), [collection]);
   const commander = deck.commanderId ? deck.entries[deck.commanderId]?.card : undefined;
   const partner = deck.partnerId ? deck.entries[deck.partnerId]?.card : undefined;
   const [recs, setRecs] = useState<Recommendation[]>([]);
@@ -42,6 +45,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<{ rec: Recommendation; action: "add" | "skip" }[]>([]);
   const [synergyOnly, setSynergyOnly] = useState(true);
+  const [ownedOnly, setOwnedOnly] = useState(false);
   const [swapPrompt, setSwapPrompt] = useState<SwapPrompt | null>(null);
 
   // Drag state
@@ -82,6 +86,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
         out = out.filter((r) => (r.synergy ?? 0) >= 0.05 || r.source !== "edhrec");
       }
     }
+    if (ownedOnly) out = out.filter((r) => ownedNames.has(r.card.name));
     // Stable sort by deficit tier (3 = severely under, 0 = saturated).
     // Within a tier the existing order — which already encodes the
     // synergy-bucket shuffle from commanderRecommendations — is preserved.
@@ -91,7 +96,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
       deficitTierForCard(b.card, composition) - deficitTierForCard(a.card, composition),
     );
     return out;
-  }, [recs, deck.entries, swipedSet, synergyOnly, composition]);
+  }, [recs, deck.entries, swipedSet, synergyOnly, composition, ownedOnly, ownedNames]);
 
   // Always operate on the leading edge of the queue. Once we mark a card
   // as swiped, the filter pulls it out and queue[0] becomes the next card.
@@ -295,6 +300,18 @@ export function SwipeFeed({ deck, onInspect }: Props) {
             className="accent-amber-500"
           />
           High-synergy only
+        </label>
+        <label
+          className="flex items-center gap-1 text-[11px] text-zinc-300"
+          title="Only show cards you already own at least one copy of"
+        >
+          <input
+            type="checkbox"
+            checked={ownedOnly}
+            onChange={(e) => setOwnedOnly(e.target.checked)}
+            className="accent-amber-500"
+          />
+          Owned only
         </label>
       </div>
 

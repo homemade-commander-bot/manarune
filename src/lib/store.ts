@@ -26,10 +26,27 @@ const defaultProfile = (): Profile => ({
   favoriteThemes: [],
 });
 
+// A single owned printing, keyed by Scryfall card.id (so different
+// printings of the same card are tracked independently). Foil and
+// non-foil counts are kept separate because they have different
+// market values and most collectors care which they own.
+export interface CollectionEntry {
+  cardId: string;
+  card: Card;
+  quantity: number;       // non-foil count
+  foilQuantity: number;
+  acquiredAt: number;
+}
+
 interface DeckStore {
   profile: Profile;
   decks: Record<string, Deck>;
   activeDeckId: string | null;
+
+  // The user's owned-cards collection. Keyed by Scryfall card.id, so
+  // multiple printings of the same card live as separate entries (Beta
+  // Lightning Bolt vs. M11 Lightning Bolt).
+  collection: Record<string, CollectionEntry>;
 
   // Session-only: card IDs the user has already seen in the SwipeFeed for
   // each deck this session. Cleared on commander change and on full
@@ -57,6 +74,11 @@ interface DeckStore {
 
   markSwiped: (deckId: string, cardId: string) => void;
   resetSwiped: (deckId: string) => void;
+
+  addToCollection: (card: Card, quantity?: number, foil?: boolean) => void;
+  removeFromCollection: (cardId: string, quantity?: number, foil?: boolean) => void;
+  setCollectionQuantity: (cardId: string, quantity: number, foil?: boolean) => void;
+  clearCollection: () => void;
 }
 
 const emptyDeck = (name = "New Deck"): Deck => ({
@@ -76,6 +98,7 @@ export const useDeckStore = create<DeckStore>()(
       profile: defaultProfile(),
       decks: {},
       activeDeckId: null,
+      collection: {},
       swipedIds: {},
 
       setProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
@@ -253,17 +276,72 @@ export const useDeckStore = create<DeckStore>()(
           delete next[deckId];
           return { swipedIds: next };
         }),
+
+      addToCollection: (card, quantity = 1, foil = false) =>
+        set((s) => {
+          const all = s.collection ?? {};
+          const existing = all[card.id];
+          const next: CollectionEntry = existing
+            ? {
+                ...existing,
+                quantity: foil ? existing.quantity : existing.quantity + quantity,
+                foilQuantity: foil ? existing.foilQuantity + quantity : existing.foilQuantity,
+              }
+            : {
+                cardId: card.id,
+                card,
+                quantity: foil ? 0 : quantity,
+                foilQuantity: foil ? quantity : 0,
+                acquiredAt: Date.now(),
+              };
+          return { collection: { ...all, [card.id]: next } };
+        }),
+
+      removeFromCollection: (cardId, quantity = 1, foil = false) =>
+        set((s) => {
+          const all = s.collection ?? {};
+          const existing = all[cardId];
+          if (!existing) return s;
+          const nextQ = foil ? existing.quantity : Math.max(0, existing.quantity - quantity);
+          const nextF = foil ? Math.max(0, existing.foilQuantity - quantity) : existing.foilQuantity;
+          const next = { ...all };
+          if (nextQ === 0 && nextF === 0) {
+            delete next[cardId];
+          } else {
+            next[cardId] = { ...existing, quantity: nextQ, foilQuantity: nextF };
+          }
+          return { collection: next };
+        }),
+
+      setCollectionQuantity: (cardId, quantity, foil = false) =>
+        set((s) => {
+          const all = s.collection ?? {};
+          const existing = all[cardId];
+          if (!existing) return s;
+          const nextQ = foil ? existing.quantity : Math.max(0, quantity);
+          const nextF = foil ? Math.max(0, quantity) : existing.foilQuantity;
+          const next = { ...all };
+          if (nextQ === 0 && nextF === 0) {
+            delete next[cardId];
+          } else {
+            next[cardId] = { ...existing, quantity: nextQ, foilQuantity: nextF };
+          }
+          return { collection: next };
+        }),
+
+      clearCollection: () => set({ collection: {} }),
     }),
     {
       name: "mtg-commander-deck-builder",
       storage: createJSONStorage(() => localStorage),
-      version: 3,
+      version: 4,
       // swipedIds is intentionally session-only (not persisted) — it's a
       // "don't show me this card twice this session" filter, not user data.
       partialize: (state) => ({
         profile: state.profile,
         decks: state.decks,
         activeDeckId: state.activeDeckId,
+        collection: state.collection,
       }),
       migrate: (state: unknown, fromVersion: number) => {
         let s = (state ?? {}) as Partial<DeckStore>;
@@ -282,6 +360,10 @@ export const useDeckStore = create<DeckStore>()(
           }
           s = { ...s, decks };
         }
+        if (fromVersion < 4 && !s.collection) {
+          // v4: introduce the owned-cards collection.
+          s = { ...s, collection: {} };
+        }
         return s as DeckStore;
       },
       // Belt-and-suspenders: on rehydrate, ensure session-only fields the
@@ -292,6 +374,9 @@ export const useDeckStore = create<DeckStore>()(
         if (state && !state.swipedIds) {
           state.swipedIds = {};
         }
+        if (state && !state.collection) {
+          state.collection = {};
+        }
       },
     },
   ),
@@ -299,6 +384,40 @@ export const useDeckStore = create<DeckStore>()(
 
 export function activeDeck(s: DeckStore): Deck | null {
   return s.activeDeckId ? (s.decks[s.activeDeckId] ?? null) : null;
+}
+
+// ---- Collection selectors ----------------------------------------------
+
+export interface CollectionStats {
+  uniqueCards: number;
+  totalCards: number;        // includes foil
+  estimatedValueUsd: number; // non-foil price + foil price (USD)
+}
+
+export function collectionStats(collection: Record<string, CollectionEntry>): CollectionStats {
+  let unique = 0;
+  let total = 0;
+  let value = 0;
+  for (const e of Object.values(collection)) {
+    const qty = e.quantity + e.foilQuantity;
+    if (qty <= 0) continue;
+    unique += 1;
+    total += qty;
+    const usd = parseFloat(e.card.prices?.usd ?? "0") || 0;
+    const usdFoil = parseFloat(e.card.prices?.usd_foil ?? e.card.prices?.usd ?? "0") || 0;
+    value += e.quantity * usd + e.foilQuantity * usdFoil;
+  }
+  return { uniqueCards: unique, totalCards: total, estimatedValueUsd: value };
+}
+
+// Build a Set of names the user owns ≥1 of (any printing, any finish).
+// Cheaper than iterating the collection on every render of every card.
+export function ownedCardNames(collection: Record<string, CollectionEntry>): Set<string> {
+  const out = new Set<string>();
+  for (const e of Object.values(collection)) {
+    if (e.quantity + e.foilQuantity > 0) out.add(e.card.name);
+  }
+  return out;
 }
 
 // Drop duplicate-by-name entries from a deck (CR 903.5b), keeping the

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { commanderRecommendations, detectThemes, type Recommendation } from "@/lib/recommend";
-import { useDeckStore } from "@/lib/store";
+import { ownedCardNames, useDeckStore } from "@/lib/store";
 import type { Card, Deck } from "@/lib/types";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
 import { frontImage, safeHttpUrl } from "@/lib/scryfall";
@@ -29,6 +29,9 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
   const [sort, setSort] = useState<SortMode>("rank");
   const [maxCmc, setMaxCmc] = useState<number>(20);
   const [flash, setFlash] = useState<Set<string>>(new Set());
+  const [ownedOnly, setOwnedOnly] = useState(false);
+  const collection = useDeckStore((s) => s.collection);
+  const ownedNames = useMemo(() => ownedCardNames(collection), [collection]);
   const hover = useCardHover();
 
   // Load recommendations whenever the commander changes
@@ -70,6 +73,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
     let out = recs.filter((r) => !deck.entries[r.card.id]);
     if (section !== "All") out = out.filter((r) => r.section === section);
     if (source !== "all") out = out.filter((r) => r.source === source);
+    if (ownedOnly) out = out.filter((r) => ownedNames.has(r.card.name));
     out = out.filter((r) => r.card.cmc <= maxCmc);
     if (sort === "synergy") out = [...out].sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1));
     else if (sort === "cmc") out = [...out].sort((a, b) => a.card.cmc - b.card.cmc);
@@ -77,7 +81,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
       out = [...out].sort((a, b) => parseFloat(b.card.prices.usd ?? "0") - parseFloat(a.card.prices.usd ?? "0"));
     else out = [...out].sort((a, b) => a.rank - b.rank);
     return out;
-  }, [recs, deck.entries, section, source, sort, maxCmc]);
+  }, [recs, deck.entries, section, source, sort, maxCmc, ownedOnly, ownedNames]);
 
   const sections = useMemo(() => {
     const set = new Set<string>(recs.map((r) => r.section));
@@ -171,6 +175,18 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
               className="accent-amber-500"
             />
             <span className="text-zinc-300 w-6 text-right">{maxCmc}</span>
+          </label>
+          <label
+            className="flex items-center gap-1 text-xs text-zinc-300"
+            title="Only show cards you own at least one copy of"
+          >
+            <input
+              type="checkbox"
+              checked={ownedOnly}
+              onChange={(e) => setOwnedOnly(e.target.checked)}
+              className="accent-amber-500"
+            />
+            Owned only
           </label>
         </div>
       </div>

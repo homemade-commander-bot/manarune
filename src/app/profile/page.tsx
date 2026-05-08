@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Header } from "@/components/Header";
 import { CloudSync } from "@/components/CloudSync";
-import { useDeckStore, AVATAR_OPTIONS } from "@/lib/store";
+import { useDeckStore, AVATAR_OPTIONS, collectionStats } from "@/lib/store";
 import { totalCards, deckPriceUsd, landCount } from "@/lib/analytics";
 import { detectThemes } from "@/lib/recommend";
 
 export default function ProfilePage() {
   const { profile, setProfile, decks, resetProfile } = useDeckStore();
+  const collection = useDeckStore((s) => s.collection);
+  const collStats = useMemo(() => collectionStats(collection), [collection]);
   const [name, setName] = useState(profile.name);
 
   const list = Object.values(decks);
@@ -78,6 +81,33 @@ export default function ProfilePage() {
             <Stat label="Lands" value={String(totalLands)} />
             <Stat label="Member since" value={new Date(profile.createdAt).toLocaleDateString()} />
           </div>
+        </section>
+
+        <section className="panel p-5">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="font-display text-lg text-amber-300">Collection</h2>
+            <Link href="/collection" className="text-xs text-amber-400 hover:underline underline-offset-2">
+              Manage →
+            </Link>
+          </div>
+          {collStats.uniqueCards === 0 ? (
+            <p className="text-zinc-400 text-sm">
+              No cards in your collection yet.{" "}
+              <Link href="/collection" className="text-amber-400 hover:underline">
+                Start tracking what you own
+              </Link>{" "}
+              to filter recommendations to cards you can build with today.
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="Unique cards" value={collStats.uniqueCards.toLocaleString()} />
+              <Stat label="Total cards" value={collStats.totalCards.toLocaleString()} />
+              <Stat
+                label="Est. value"
+                value={`$${collStats.estimatedValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+              />
+            </div>
+          )}
         </section>
 
         <section className="panel p-5">
