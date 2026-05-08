@@ -103,13 +103,31 @@ export function isMassLandDestruction(card: Card): boolean {
 
 // ---- Tutor detector (CR doesn't define "tutor"; community heuristic.) ----
 // We count cards whose oracle text says "Search your library for a card".
-// Any kind of land search (basic, Forest, dual, etc.) is NOT a tutor — those
-// are ramp. Examples that must NOT count: Three Visits, Cultivate, Farseek,
-// Kodama's Reach, Nature's Lore.
+// Any kind of land search (basic, fetch, dual, type-based) is NOT a tutor —
+// those are ramp / mana-fixing. Examples that must NOT count:
+//   • Three Visits, Cultivate, Farseek, Kodama's Reach, Nature's Lore
+//     ("search your library for ... land card")
+//   • Fetch lands — Arid Mesa, Misty Rainforest, etc. ("search your library
+//     for a Plains or Mountain card") — the search clause uses the basic
+//     land subtype rather than the literal word "land".
+//   • Any card whose own type line includes "Land" (lands that "tutor"
+//     are categorically fetches/ramp, not search-the-library tutors).
+const BASIC_LAND_TYPES = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"] as const;
+
 export function isTutor(card: Card): boolean {
+  // A land card is never a tutor — fetch lands are ramp.
+  if (/Land/.test(card.type_line)) return false;
   const text = card.oracle_text ?? "";
-  // Any "search your library for ... land" sentence: ramp, not tutor.
+  // Any "search your library for ... land" sentence (the literal word "land"):
+  // ramp, not tutor.
   if (/Search your library for [^.]*\bland\b/i.test(text)) return false;
+  // Any "search your library for ... [Basic Land Type] card" sentence:
+  // also ramp. Catches fetch lands and color-fixers like Bring to Light's
+  // distant cousins.
+  for (const type of BASIC_LAND_TYPES) {
+    const re = new RegExp(`Search your library for [^.]*\\b${type}\\b[^.]*card`, "i");
+    if (re.test(text)) return false;
+  }
   return /Search your library for (a|an|up to)/i.test(text);
 }
 

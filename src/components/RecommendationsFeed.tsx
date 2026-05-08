@@ -333,36 +333,46 @@ function FeedCard({
           <ColorIdentityPips colors={r.card.color_identity} />
         </div>
         <div className="flex items-center gap-2 text-[10px] text-zinc-400">
-          <span>{r.card.type_line.split(" — ")[0]}</span>
-          {r.card.prices.usd && <span className="ml-auto text-emerald-400">${r.card.prices.usd}</span>}
+          <span className="truncate">{r.card.type_line.split(" — ")[0]}</span>
         </div>
-        <div className="flex gap-1 pt-1">
-          <button
-            onClick={() => onAdd(r)}
-            className="btn btn-primary text-[11px] px-2 py-1 flex-1 justify-center"
-          >
-            + Deck
-          </button>
+        {/* Primary action: full-width so the label never truncates. */}
+        <button
+          onClick={() => onAdd(r)}
+          className="btn btn-primary text-xs w-full justify-center mt-1"
+          title="Add this card to your active deck"
+        >
+          + Add to deck
+        </button>
+
+        {/* Secondary actions: explicit text on each so the function is
+            unambiguous. Owned state changes both label and color. */}
+        <div className="flex gap-1">
           <button
             onClick={() => onFastAddToCollection(r.card)}
-            className={`btn text-[11px] px-2 py-1 flex-1 justify-center ${
+            className={`text-[11px] px-2 py-1 rounded border transition flex-1 flex items-center justify-center gap-1 ${
               owned
-                ? "bg-amber-900/40 border border-amber-700/40 text-amber-200 hover:bg-amber-900/60"
-                : "btn-ghost"
+                ? "border-amber-700/40 bg-amber-900/30 text-amber-200 hover:bg-amber-900/50"
+                : "border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-amber-300"
             }`}
-            title={`⚡ Add to ${fastAddGroupName}${owned ? " (already owned)" : ""}`}
+            title={
+              owned
+                ? `Already in ${fastAddGroupName} — click to add another copy`
+                : `Add 1 copy to ${fastAddGroupName}`
+            }
           >
-            ⚡ {owned ? "+1 owned" : "+ Coll"}
+            <span aria-hidden>{owned ? "✓" : "+"}</span>
+            <span>{owned ? "Owned" : "Collect"}</span>
           </button>
           {safeHttpUrl(r.card.purchase_uris?.tcgplayer) && (
             <a
               href={safeHttpUrl(r.card.purchase_uris?.tcgplayer)}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-ghost text-[11px] px-2 py-1"
-              title="Buy on TCGplayer"
+              className="text-[11px] px-2 py-1 rounded border border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-emerald-300 flex items-center justify-center gap-1"
+              title="Buy this printing on TCGplayer"
             >
-              $
+              <span aria-hidden>$</span>
+              <span>{r.card.prices.usd ? `${parseFloat(r.card.prices.usd).toFixed(2)}` : "Buy"}</span>
             </a>
           )}
         </div>

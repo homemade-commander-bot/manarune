@@ -12,10 +12,15 @@ const BRACKET_COLORS = {
   5: "from-fuchsia-800 via-rose-700 to-rose-600 text-fuchsia-50",
 } as const;
 
+// Signal levels carry information about *what* drives the bracket
+// estimate, not whether anything is wrong. We deliberately don't use
+// red here — a deck with MLD or combos isn't broken, it's just a
+// higher-bracket build. info=neutral, warn=amber, danger=fuchsia
+// (purple-pink range, reads as "powerful" rather than "warning").
 const SIGNAL_STYLES = {
   info: { border: "border-zinc-700/50", text: "text-zinc-300", bg: "bg-bg-raised", icon: "·" },
-  warn: { border: "border-amber-600/40", text: "text-amber-200", bg: "bg-amber-900/15", icon: "!" },
-  danger: { border: "border-red-600/40", text: "text-red-200", bg: "bg-red-900/20", icon: "✕" },
+  warn: { border: "border-amber-600/40", text: "text-amber-200", bg: "bg-amber-900/15", icon: "▴" },
+  danger: { border: "border-fuchsia-600/40", text: "text-fuchsia-200", bg: "bg-fuchsia-900/20", icon: "★" },
 } as const;
 
 const CONFIDENCE_STYLES = {
@@ -85,10 +90,10 @@ export function BracketEstimator({ deck }: { deck: Deck }) {
       </div>
 
       <div className="grid grid-cols-4 gap-2">
-        <Stat label="Game Changers" value={est.gameChangers.length} hot={est.gameChangers.length > 3} />
-        <Stat label="Tutors" value={est.tutors.length} hot={est.tutors.length > 4} />
-        <Stat label="Fast Mana" value={est.fastMana.length} hot={est.fastMana.length > 2} />
-        <Stat label="MLD" value={est.mld.length} hot={est.mld.length > 0} />
+        <Stat label="Game Changers" value={est.gameChangers.length} accent="purple" />
+        <Stat label="Tutors" value={est.tutors.length} accent="sky" />
+        <Stat label="Fast Mana" value={est.fastMana.length} accent="amber" />
+        <Stat label="MLD" value={est.mld.length} accent="fuchsia" />
       </div>
 
       {est.signals.length > 0 && (
@@ -146,24 +151,63 @@ export function BracketEstimator({ deck }: { deck: Deck }) {
   );
 }
 
-function Stat({ label, value, hot }: { label: string; value: number; hot?: boolean }) {
+// Per-category visual identity. Each category gets its own hue so the
+// user can tell at a glance which dimension a tile is reporting; tints
+// scale gently with the count rather than jumping to "danger red" so
+// a powerful deck doesn't read as "broken." We do NOT use red here —
+// red implies "fix this." Higher counts just mean "this is what makes
+// the deck its bracket," which is information, not a problem.
+const STAT_ACCENTS: Record<
+  "purple" | "sky" | "amber" | "fuchsia",
+  { zero: string; some: string; many: string; text: string; textZero: string }
+> = {
+  purple: {
+    zero: "border-bg-border bg-bg-raised",
+    some: "border-purple-700/30 bg-purple-900/15",
+    many: "border-purple-600/50 bg-purple-900/30",
+    text: "text-purple-200",
+    textZero: "text-zinc-400",
+  },
+  sky: {
+    zero: "border-bg-border bg-bg-raised",
+    some: "border-sky-700/30 bg-sky-900/15",
+    many: "border-sky-600/50 bg-sky-900/30",
+    text: "text-sky-200",
+    textZero: "text-zinc-400",
+  },
+  amber: {
+    zero: "border-bg-border bg-bg-raised",
+    some: "border-amber-700/30 bg-amber-900/15",
+    many: "border-amber-600/50 bg-amber-900/30",
+    text: "text-amber-200",
+    textZero: "text-zinc-400",
+  },
+  fuchsia: {
+    zero: "border-bg-border bg-bg-raised",
+    some: "border-fuchsia-700/30 bg-fuchsia-900/15",
+    many: "border-fuchsia-600/50 bg-fuchsia-900/30",
+    text: "text-fuchsia-200",
+    textZero: "text-zinc-400",
+  },
+};
+
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent: keyof typeof STAT_ACCENTS;
+}) {
+  const palette = STAT_ACCENTS[accent];
+  // Three saturation tiers: zero, some (1-2), many (3+). The "many" tier
+  // is just darker than "some" — same hue family, no warning red.
+  const bg = value === 0 ? palette.zero : value >= 3 ? palette.many : palette.some;
+  const fg = value === 0 ? palette.textZero : palette.text;
   return (
-    <div
-      className={`rounded-md border px-2 py-1.5 text-center transition-colors ${
-        hot
-          ? "border-red-600/40 bg-red-900/20"
-          : value > 0
-            ? "border-amber-700/30 bg-amber-900/10"
-            : "border-bg-border bg-bg-raised"
-      }`}
-    >
-      <div
-        className={`font-mono text-lg leading-none ${
-          hot ? "text-red-300" : value > 0 ? "text-amber-200" : "text-zinc-200"
-        }`}
-      >
-        {value}
-      </div>
+    <div className={`rounded-md border px-2 py-1.5 text-center transition-colors ${bg}`}>
+      <div className={`font-mono text-lg leading-none ${fg}`}>{value}</div>
       <div className="text-[9px] uppercase tracking-wider text-zinc-400 mt-1 leading-tight">
         {label}
       </div>

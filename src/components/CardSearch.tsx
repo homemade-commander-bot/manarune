@@ -146,26 +146,42 @@ export function CardSearch({ deck, onInspect }: Props) {
                   <ColorIdentityPips colors={c.color_identity} />
                   {c.prices.usd && <span className="text-emerald-400">${c.prices.usd}</span>}
                 </div>
-                <div className="flex gap-1 mt-1">
+                <button
+                  onClick={() => add(c)}
+                  className="btn btn-primary text-xs w-full justify-center mt-1"
+                  title="Add this card to your active deck"
+                >
+                  + Add to deck
+                </button>
+                <div className="flex gap-1">
+                  {(() => {
+                    const owned = ownedNames.has(c.name);
+                    return (
+                      <button
+                        onClick={() => fastAddToCollection(c)}
+                        className={`text-[11px] px-2 py-1 rounded border transition flex-1 flex items-center justify-center gap-1 ${
+                          owned
+                            ? "border-amber-700/40 bg-amber-900/30 text-amber-200 hover:bg-amber-900/50"
+                            : "border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-amber-300"
+                        }`}
+                        title={
+                          owned
+                            ? `Already in ${fastAddGroupName} — click to add another copy`
+                            : `Add 1 copy to ${fastAddGroupName}`
+                        }
+                      >
+                        <span aria-hidden>{owned ? "✓" : "+"}</span>
+                        <span>{owned ? "Owned" : "Collect"}</span>
+                      </button>
+                    );
+                  })()}
                   <button
-                    onClick={() => add(c)}
-                    className="btn btn-primary text-[11px] px-2 py-1 flex-1 justify-center"
+                    onClick={() => onInspect(c)}
+                    className="text-[11px] px-2 py-1 rounded border border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-amber-300 flex items-center justify-center gap-1"
+                    title="Open the full card detail with rulings and purchase links"
                   >
-                    + Deck
-                  </button>
-                  <button
-                    onClick={() => fastAddToCollection(c)}
-                    className={`btn text-[11px] px-2 py-1 flex-1 justify-center ${
-                      ownedNames.has(c.name)
-                        ? "bg-amber-900/40 border border-amber-700/40 text-amber-200 hover:bg-amber-900/60"
-                        : "btn-ghost"
-                    }`}
-                    title={`⚡ Add to ${fastAddGroupName}${ownedNames.has(c.name) ? " (already owned)" : ""}`}
-                  >
-                    ⚡ {ownedNames.has(c.name) ? "+1" : "+ Coll"}
-                  </button>
-                  <button onClick={() => onInspect(c)} className="btn btn-ghost text-[11px] px-2 py-1">
-                    Info
+                    <span aria-hidden>🔍</span>
+                    <span>Details</span>
                   </button>
                 </div>
               </div>
