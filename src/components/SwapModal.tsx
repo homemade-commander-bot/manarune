@@ -10,12 +10,16 @@
 // Hover-preview integrated: hovering either side card or any row in
 // the "choose a different card to cut" list floats a 320px card image
 // near the cursor so the user can read the cards before deciding.
+// The preview is portaled to document.body via CardHoverLayer so it
+// can never be trapped by a parent's stacking context (the DeckList
+// panel uses backdrop-filter which would otherwise contain a
+// fixed-positioned preview to its own box).
 
 import { useState } from "react";
 import type { Card, Deck, DeckEntry } from "@/lib/types";
 import { deckEntries } from "@/lib/analytics";
 import { frontImage } from "@/lib/scryfall";
-import { CardHoverPreview } from "./CardHoverPreview";
+import { CardHoverLayer, useCardHover } from "./CardHoverPreview";
 
 interface Props {
   incomingCard: Card;
@@ -37,16 +41,16 @@ export function SwapModal({
   onInspect,
 }: Props) {
   const [customPick, setCustomPick] = useState(false);
-  const [preview, setPreview] = useState<{ card: Card; x: number; y: number } | null>(null);
+  const hover = useCardHover();
   const entries = deckEntries(deck).filter(
     (e) => e.cardId !== deck.commanderId && e.cardId !== deck.partnerId,
   );
 
-  const showPreview = (card: Card, e: React.MouseEvent) =>
-    setPreview({ card, x: e.clientX, y: e.clientY });
-  const movePreview = (e: React.MouseEvent) =>
-    setPreview((p) => (p ? { ...p, x: e.clientX, y: e.clientY } : p));
-  const hidePreview = () => setPreview(null);
+  // Local aliases keep the JSX below readable. These delegate to the
+  // portaled hover state so the preview floats over document.body.
+  const showPreview = (card: Card, e: React.MouseEvent) => hover.show(card, e);
+  const movePreview = (e: React.MouseEvent) => hover.move(e);
+  const hidePreview = () => hover.hide();
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onCancel}>
@@ -153,7 +157,7 @@ export function SwapModal({
         )}
       </div>
 
-      {preview && <CardHoverPreview card={preview.card} cursorX={preview.x} cursorY={preview.y} />}
+      <CardHoverLayer hover={hover} />
     </div>
   );
 }
