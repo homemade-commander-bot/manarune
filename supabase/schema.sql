@@ -87,3 +87,77 @@ create policy "deck_update_own"
 create policy "deck_delete_own"
   on public.decks for delete
   using (auth.uid() = user_id);
+
+-- ======================================================================
+-- collection_groups: user-defined sub-collections (Main / Trade binder /
+-- Tergrid pile, etc.). Always at least the "default" group per user;
+-- created on the client and inserted here.
+-- ======================================================================
+create table if not exists public.collection_groups (
+  id text not null,                             -- client-generated
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists collection_groups_user_idx on public.collection_groups(user_id);
+
+alter table public.collection_groups enable row level security;
+
+create policy "collection_groups_select_own"
+  on public.collection_groups for select
+  using (auth.uid() = user_id);
+
+create policy "collection_groups_insert_own"
+  on public.collection_groups for insert
+  with check (auth.uid() = user_id);
+
+create policy "collection_groups_update_own"
+  on public.collection_groups for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "collection_groups_delete_own"
+  on public.collection_groups for delete
+  using (auth.uid() = user_id);
+
+-- ======================================================================
+-- collection_entries: per-printing rows of the user's owned cards.
+-- Keyed by Scryfall card.id so different printings (Beta vs M11
+-- Lightning Bolt) are tracked independently. Per-group quantities
+-- live inside the jsonb data blob (groupQuantities) since the shape
+-- mirrors the CollectionEntry type in src/lib/types.ts and we never
+-- query inside it server-side.
+-- ======================================================================
+create table if not exists public.collection_entries (
+  card_id text not null,                        -- Scryfall card.id
+  user_id uuid not null references auth.users(id) on delete cascade,
+  data jsonb not null,                          -- full CollectionEntry
+  acquired_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, card_id)
+);
+
+create index if not exists collection_entries_user_idx on public.collection_entries(user_id);
+create index if not exists collection_entries_updated_idx
+  on public.collection_entries(user_id, updated_at desc);
+
+alter table public.collection_entries enable row level security;
+
+create policy "collection_select_own"
+  on public.collection_entries for select
+  using (auth.uid() = user_id);
+
+create policy "collection_insert_own"
+  on public.collection_entries for insert
+  with check (auth.uid() = user_id);
+
+create policy "collection_update_own"
+  on public.collection_entries for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "collection_delete_own"
+  on public.collection_entries for delete
+  using (auth.uid() = user_id);

@@ -2,22 +2,38 @@
 
 A free, browser-based deck builder for the Magic: The Gathering Commander format.
 
-**Use it without an account** — decks save to localStorage. Optional cloud sync via Supabase if you want cross-device access.
+**Use it without an account** — decks and your collection save to localStorage. Optional cloud sync via Supabase for cross-device access.
 
 ## What's in the box
 
-- **Tinder-style swipe UI** for high-synergy card recommendations from EDHREC + Scryfall.
-- **Combo piece highlighting** — cards that form one half of a known infinite combo (Thoracle/Consult, Kiki/Felidar, Heliod/Ballista, Worldgorger lines, Food Chain lines, etc.) are flagged in your decklist and swipe feed.
-- **Live Commander Brackets estimator (1–5)** based on the WotC RC differentiators (Game Changers count, MLD presence, fast mana density, two-card combos).
+### Deck building
+- **Tinder-style swipe UI** for high-synergy card recommendations from EDHREC + Scryfall. Session memory ("don't show me this card twice"), randomized order with a re-deal button, deck-composition deficit bias (a deck short on creatures sees creature recs first).
+- **Drag-and-drop** any card from the recommendations feed or search results onto the deck list.
+- **Swap modal at 100/100** — try to add a card to a full deck (by swiping right, dragging, or clicking + Add) and you get a heuristic-ranked cut suggestion plus a sortable list of every card in the deck if you'd rather pick the cut yourself.
+- **Curated by-color staples** for every color identity (Lightning Bolt, Counterspell, Demonic Tutor, Cultivate, Path to Exile, Swords to Plowshares, Sol Ring + Arcane Signet auto-seeded on every new deck, etc.).
 - **Two-tier land optimizer** — budget mode (Command Tower, ≤$5 duals, pip-proportional basics) and "I'm Rich" (fetches, original duals, Gaea's Cradle, etc.).
+- **Hover-preview everywhere** — every card in every list/grid floats a 320×448 readable preview at the cursor on hover.
+
+### Format awareness
+- **Live Commander Brackets estimator (1–5)** based on the WotC RC differentiators (Game Changers count, MLD presence, fast mana density, two-card combos, tutors). Per-category color identity in the stat tiles communicates "this is what makes the deck its bracket" rather than "fix this."
+- **Combo piece highlighting** — cards forming one half of a known infinite (Thoracle/Consult, Kiki/Felidar, Heliod/Ballista, Worldgorger lines, Food Chain lines, Exquisite Blood lines, etc.) are flagged in both the decklist and the swipe feed.
 - **Strict format validation** — color identity (CR 903.4), singleton with the proper "any number" allow-list (903.5b), 100-card check (903.5), banlist via Scryfall legalities (903.6c), and partner / friends-forever / Doctor's-companion / background pairing.
-- **Multi-deck library** with profiles, deck duplication, rename, delete.
-- **Card detail modal** with official rulings (Scryfall) and TCGplayer / Cardmarket / EDHREC links.
+
+### Collection
+- **Per-printing collection** with foil and non-foil counts, owned-cards value estimate (TCGplayer USD), and group support (Main / Trade binder / Tergrid pile).
+- **Fast-add button** sends a card to the user's chosen target group with one click.
+- **Filters** — name search, Scryfall syntax search (intersected with collection by `card.id`), set, color identity, value range, sort by name/value/set/recently-added.
+- **"Owned only" toggle** on the recommendations feed and swiper to limit suggestions to cards you already have.
+
+### Other
+- **Multi-deck library** with profiles, deck duplication, rename, delete (in-app modal, not browser `confirm()`).
+- **Card detail modal** with official rulings from Scryfall and TCGplayer / Cardmarket / EDHREC links.
+- **Card-type donut chart** in Deck Stats with per-type accent colors tuned for high contrast.
 - **Export** to MTGO/Arena `.txt` and Markdown.
 
 ## Stack
 
-Next.js 15 (App Router) · React 19 · TypeScript · Tailwind 3 · Zustand · Scryfall API · EDHREC unofficial JSON · optional Supabase.
+Next.js 15 (App Router) · React 19 · TypeScript · Tailwind 3 · Zustand 5 · Scryfall API · EDHREC unofficial JSON (proxied server-side at `/api/edhrec`) · optional Supabase.
 
 ## Local development
 
@@ -39,7 +55,7 @@ The app works fully without sync. To enable cross-device sync via Supabase:
    NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
    ```
-4. In Supabase SQL editor, run `supabase/schema.sql` to create the tables and Row Level Security policies.
+4. In Supabase SQL editor, run `supabase/schema.sql` to create the tables (`profiles`, `decks`, `collection_entries`, `collection_groups`) with Row Level Security policies.
 5. Restart the dev server.
 
 Without these env vars set, the app falls back to localStorage-only mode and the API routes respond `503 sync_not_configured`.
@@ -54,24 +70,33 @@ vercel --prod          # one-shot deploy
 
 Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel's dashboard (Project Settings → Environment Variables) if you want sync in production.
 
+See `.claude/launch/DEPLOY.md` for the full step-by-step deployment + community-launch playbook.
+
 ## Project layout
 
 ```
 src/
   app/                Next.js App Router pages + API routes
-    api/decks/        Optional sync REST endpoints (RLS-guarded)
-    api/auth/         Session verification
+    api/auth/         Bearer-token session verification
+    api/decks/        Optional deck sync REST endpoints (RLS-guarded)
+    api/edhrec/       Server-side proxy for json.edhrec.com (CORS bypass)
+    build/            Deck builder page (3-column: deck list, feed/swipe/search, stats)
+    collection/       /collection page with groups, filters, Scryfall search
+    commanders/       Commander picker
+    profile/          Profile + cloud sync UI + collection summary
+    rules/            CR 903 reference
   components/         React components
   lib/                Pure logic — Scryfall client, EDHREC client,
                       commander rules engine, brackets estimator,
-                      land optimizer, store, types.
+                      land optimizer, recommendation pipeline, store,
+                      composition targets, drag-and-drop helpers, types.
 supabase/
-  schema.sql          Tables, triggers, RLS policies
+  schema.sql          Tables, triggers, RLS policies for all four tables.
 .claude/
   changelog/          Versioned change history
   context/            Per-session context document
-  launch/             Drafted MTG community announcement posts
-  skills/             Custom Claude Code skills
+  launch/             Drafted MTG community announcement posts + DEPLOY.md
+  skills/             Custom Claude Code skills (mtg-head-judge)
 ```
 
 ## Format compliance
