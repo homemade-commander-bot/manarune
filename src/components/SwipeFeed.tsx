@@ -10,8 +10,8 @@ import { suggestCut } from "@/lib/lands";
 import { comboPartnersInDeck } from "@/lib/brackets";
 import { deckComposition, deficitTierForCard } from "@/lib/composition";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
-import { CardHoverPreview } from "./CardHoverPreview";
 import { ownedCardNames } from "@/lib/store";
+import { SwapModal } from "./SwapModal";
 
 interface Props {
   deck: Deck;
@@ -415,7 +415,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
 
       {swapPrompt && (
         <SwapModal
-          incoming={swapPrompt.incoming}
+          incomingCard={swapPrompt.incoming.card}
           suggestedCut={swapPrompt.suggestedCut}
           deck={deck}
           onSwap={executeSwap}
@@ -483,143 +483,4 @@ function SwipeCard({
   );
 }
 
-function SwapModal({
-  incoming,
-  suggestedCut,
-  deck,
-  onSwap,
-  onSkip,
-  onCancel,
-  onInspect,
-}: {
-  incoming: Recommendation;
-  suggestedCut: DeckEntry;
-  deck: Deck;
-  onSwap: (cutCardId: string) => void;
-  onSkip: () => void;
-  onCancel: () => void;
-  onInspect: (c: Card) => void;
-}) {
-  const [customPick, setCustomPick] = useState(false);
-  const [preview, setPreview] = useState<{ card: Card; x: number; y: number } | null>(null);
-  const entries = deckEntries(deck).filter(
-    (e) => e.cardId !== deck.commanderId && e.cardId !== deck.partnerId,
-  );
-
-  // Hover-preview helpers. Track the cursor so the preview tracks
-  // smoothly as the user moves between cards.
-  const showPreview = (card: Card, e: React.MouseEvent) =>
-    setPreview({ card, x: e.clientX, y: e.clientY });
-  const movePreview = (e: React.MouseEvent) =>
-    setPreview((p) => (p ? { ...p, x: e.clientX, y: e.clientY } : p));
-  const hidePreview = () => setPreview(null);
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onCancel}>
-      <div className="panel max-w-lg w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <div className="text-center">
-          <h3 className="font-display text-xl text-amber-400">Deck Full (100/100)</h3>
-          <p className="text-zinc-400 text-sm mt-1">
-            Want to swap a card to make room for <span className="text-amber-300 font-semibold">{incoming.card.name}</span>?
-          </p>
-          <p className="text-[10px] text-zinc-500 mt-1">Hover any card to preview it.</p>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex-1 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-red-400 mb-1">Remove</div>
-            <div
-              className="bg-red-900/20 border border-red-800/40 rounded p-2 cursor-pointer hover:border-red-600/60 transition"
-              onClick={() => onInspect(suggestedCut.card)}
-              onMouseEnter={(e) => showPreview(suggestedCut.card, e)}
-              onMouseMove={movePreview}
-              onMouseLeave={hidePreview}
-            >
-              {frontImage(suggestedCut.card, "small") && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={frontImage(suggestedCut.card, "small")!}
-                  alt={suggestedCut.card.name}
-                  className="w-16 h-16 rounded object-cover mx-auto mb-1"
-                />
-              )}
-              <div className="text-xs font-medium truncate">{suggestedCut.card.name}</div>
-              <div className="text-[10px] text-zinc-500">{suggestedCut.card.type_line.split(" — ")[0]}</div>
-              <div className="text-[10px] text-zinc-500">CMC {suggestedCut.card.cmc}</div>
-            </div>
-          </div>
-
-          <div className="text-2xl text-amber-400">→</div>
-
-          <div className="flex-1 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1">Add</div>
-            <div
-              className="bg-emerald-900/20 border border-emerald-800/40 rounded p-2 cursor-pointer hover:border-emerald-600/60 transition"
-              onClick={() => onInspect(incoming.card)}
-              onMouseEnter={(e) => showPreview(incoming.card, e)}
-              onMouseMove={movePreview}
-              onMouseLeave={hidePreview}
-            >
-              {frontImage(incoming.card, "small") && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={frontImage(incoming.card, "small")!}
-                  alt={incoming.card.name}
-                  className="w-16 h-16 rounded object-cover mx-auto mb-1"
-                />
-              )}
-              <div className="text-xs font-medium truncate">{incoming.card.name}</div>
-              <div className="text-[10px] text-zinc-500">{incoming.card.type_line.split(" — ")[0]}</div>
-              <div className="text-[10px] text-zinc-500">CMC {incoming.card.cmc}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => onSwap(suggestedCut.cardId)}
-            className="btn btn-primary flex-1 justify-center"
-          >
-            Swap
-          </button>
-          <button onClick={onSkip} className="btn btn-ghost flex-1 justify-center">
-            Skip card
-          </button>
-        </div>
-
-        <button
-          onClick={() => setCustomPick((v) => !v)}
-          className="text-[11px] text-zinc-400 hover:text-zinc-200 underline w-full text-center"
-        >
-          {customPick ? "Hide deck list" : "Choose a different card to cut"}
-        </button>
-
-        {customPick && (
-          <div className="max-h-48 overflow-y-auto border border-bg-border rounded">
-            {entries
-              .sort((a, b) => b.card.cmc - a.card.cmc || a.card.name.localeCompare(b.card.name))
-              .map((e) => (
-                <button
-                  key={e.cardId}
-                  onClick={() => onSwap(e.cardId)}
-                  onMouseEnter={(ev) => showPreview(e.card, ev)}
-                  onMouseMove={movePreview}
-                  onMouseLeave={hidePreview}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-bg-raised transition text-left"
-                >
-                  <span className="text-zinc-500 w-6 text-right">{e.card.cmc}</span>
-                  <span className="flex-1 truncate">{e.card.name}</span>
-                  <span className="text-[10px] text-zinc-500 truncate max-w-[100px]">
-                    {e.card.type_line.split(" — ")[0]}
-                  </span>
-                </button>
-              ))}
-          </div>
-        )}
-      </div>
-
-      {preview && <CardHoverPreview card={preview.card} cursorX={preview.x} cursorY={preview.y} />}
-    </div>
-  );
-}
 

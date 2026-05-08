@@ -5,10 +5,12 @@ import { useDeckStore } from "@/lib/store";
 import { categoryBreakdown, totalCards } from "@/lib/analytics";
 import { isUnlimitedQuantity } from "@/lib/commander-rules";
 import { findComboPiecesInDeck } from "@/lib/brackets";
+import { suggestCut } from "@/lib/lands";
 import type { Card, Deck, DeckCategory } from "@/lib/types";
 import { ManaCost } from "./ManaCost";
 import { CardHoverLayer, hoverProps, useCardHover } from "./CardHoverPreview";
 import { dropTargetProps } from "@/lib/dnd";
+import { SwapModal } from "./SwapModal";
 
 const ORDER: DeckCategory[] = [
   "Commander",
@@ -30,13 +32,29 @@ export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card)
   const hasCombos = comboMap.size > 0;
   const hover = useCardHover();
   const [dragHover, setDragHover] = useState(false);
-  const dropProps = dropTargetProps(
-    (card) => addCard(deck.id, card),
-    {
-      onDragEnter: () => setDragHover(true),
-      onDragLeave: () => setDragHover(false),
-    },
-  );
+  const [pendingSwap, setPendingSwap] = useState<{ incoming: Card; cut: ReturnType<typeof suggestCut> } | null>(null);
+
+  // Drop handler. If the deck is full, divert into the swap modal
+  // instead of silently letting the deck overrun 100/100. If the
+  // dropped card is already in the deck or there's no good cut
+  // candidate, fall back to a plain addCard (the store-level
+  // singleton check then no-ops on duplicates).
+  function handleDrop(card: Card) {
+    if (deck.entries[card.id]) return; // already in deck — no-op
+    if (totalCards(deck) >= 100) {
+      const cut = suggestCut(deck);
+      if (cut) {
+        setPendingSwap({ incoming: card, cut });
+        return;
+      }
+    }
+    addCard(deck.id, card);
+  }
+
+  const dropProps = dropTargetProps(handleDrop, {
+    onDragEnter: () => setDragHover(true),
+    onDragLeave: () => setDragHover(false),
+  });
 
   return (
     <div
@@ -141,6 +159,22 @@ export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card)
       </div>
 
       <CardHoverLayer hover={hover} />
+
+      {pendingSwap && pendingSwap.cut && (
+        <SwapModal
+          incomingCard={pendingSwap.incoming}
+          suggestedCut={pendingSwap.cut}
+          deck={deck}
+          onSwap={(cutCardId) => {
+            removeCard(deck.id, cutCardId);
+            addCard(deck.id, pendingSwap.incoming);
+            setPendingSwap(null);
+          }}
+          onSkip={() => setPendingSwap(null)}
+          onCancel={() => setPendingSwap(null)}
+          onInspect={onInspect}
+        />
+      )}
     </div>
   );
 }
