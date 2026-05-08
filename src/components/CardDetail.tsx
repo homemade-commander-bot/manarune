@@ -48,10 +48,13 @@ export function CardDetail({ card, deckId, onClose }: Props) {
   const img = showBack ? back : front;
 
   return (
-    <div className="fixed inset-0 z-40 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="panel max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start gap-4 p-4">
-          <div className="flex-shrink-0 w-72">
+    <div className="fixed inset-0 z-40 bg-black/70 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+      <div className="panel max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {/* Mobile: stack image above details. Desktop: side-by-side
+            with a fixed-width image column so the rules text gets the
+            remaining space. */}
+        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 sm:p-4">
+          <div className="flex-shrink-0 w-full max-w-[260px] sm:max-w-none sm:w-72 mx-auto sm:mx-0">
             {img ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={img} alt={card.name} className="rounded-lg card-shadow w-full" />
@@ -65,7 +68,7 @@ export function CardDetail({ card, deckId, onClose }: Props) {
             )}
           </div>
 
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 w-full">
             <div className="flex items-start gap-2">
               <h2 className="font-display text-2xl flex-1">{card.name}</h2>
               <button onClick={onClose} className="text-zinc-400 hover:text-white text-2xl leading-none">×</button>

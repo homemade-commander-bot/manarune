@@ -18,9 +18,13 @@ export function Header() {
 
   return (
     <header className="border-b border-bg-border bg-bg-panel/85 backdrop-blur sticky top-0 z-30">
-      <div className="max-w-[1700px] mx-auto px-4 py-3 flex items-center gap-4">
-        <Link href="/" className="font-display text-xl tracking-wide bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">
-          ⌬ Commander Forge
+      <div className="max-w-[1700px] mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-4">
+        <Link
+          href="/"
+          className="font-display text-lg sm:text-xl tracking-wide bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent whitespace-nowrap"
+        >
+          <span className="hidden sm:inline">⌬ Commander Forge</span>
+          <span className="sm:hidden">⌬ Forge</span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           <Link href="/" className={nav("/")}>My Decks</Link>
@@ -28,10 +32,18 @@ export function Header() {
           <Link href="/collection" className={nav("/collection")}>Collection</Link>
           <Link href="/rules" className={nav("/rules")}>Rules</Link>
         </nav>
-        <div className="ml-auto flex items-center gap-2">
+        {/* Mobile-only compact nav (visible below md). Each route gets
+            an emoji + short label so the bar fits in <320px. */}
+        <nav className="md:hidden flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto">
+          <Link href="/" className={`${nav("/")} text-xs px-2`} title="My Decks">📚</Link>
+          <Link href="/build" className={`${nav("/build")} text-xs px-2`} title="Builder">🛠</Link>
+          <Link href="/collection" className={`${nav("/collection")} text-xs px-2`} title="Collection">📦</Link>
+          <Link href="/rules" className={`${nav("/rules")} text-xs px-2`} title="Rules">📜</Link>
+        </nav>
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           {list.length > 0 && pathname === "/build" && (
             <select
-              className="bg-bg-raised border border-bg-border rounded px-2 py-1 text-sm max-w-[200px]"
+              className="bg-bg-raised border border-bg-border rounded px-1.5 sm:px-2 py-1 text-xs sm:text-sm max-w-[120px] sm:max-w-[200px]"
               value={activeDeckId ?? ""}
               onChange={(e) => setActiveDeck(e.target.value)}
             >
@@ -41,17 +53,19 @@ export function Header() {
             </select>
           )}
           <button
-            className="btn btn-ghost"
+            className="btn btn-ghost text-xs sm:text-sm px-2 sm:px-3"
             onClick={() => {
               const id = createDeck("Untitled Deck");
               if (pathname !== "/commanders") router.push("/commanders");
               setActiveDeck(id);
             }}
+            title="Create a new deck"
           >
-            + New Deck
+            <span className="hidden sm:inline">+ New Deck</span>
+            <span className="sm:hidden">+ New</span>
           </button>
-          <Link href="/profile" className="flex items-center gap-2 px-2 py-1 rounded hover:bg-bg-raised">
-            <span className="text-2xl leading-none">{profile.avatar}</span>
+          <Link href="/profile" className="flex items-center gap-2 px-1.5 sm:px-2 py-1 rounded hover:bg-bg-raised">
+            <span className="text-xl sm:text-2xl leading-none">{profile.avatar}</span>
             <span className="hidden sm:inline text-sm text-zinc-200">{profile.name}</span>
           </Link>
         </div>

@@ -108,6 +108,35 @@ function colorPairKey(a: Color, b: Color): string {
   return [a, b].sort().join("");
 }
 
+// Defensive type-guard. The Scryfall queries below all include `t:land`
+// or look up known land names, but if a non-land ever slips through (a
+// Scryfall name-resolution edge case, an upstream API quirk, or a typo
+// in our own land allow-lists) we skip it rather than dump a creature
+// into the user's "Optimize Lands" plan. Logged to the console so the
+// upstream cause is visible if it happens.
+function isLand(card: Card): boolean {
+  if (!card?.type_line) return false;
+  return /Land/.test(card.type_line);
+}
+
+function pushIfLand(
+  list: { card: Card; reason: string }[],
+  card: Card,
+  reason: string,
+): boolean {
+  if (!isLand(card)) {
+    if (typeof console !== "undefined") {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[optimizeLands] Skipping non-land result: "${card.name}" (${card.type_line})`,
+      );
+    }
+    return false;
+  }
+  list.push({ card, reason });
+  return true;
+}
+
 export async function optimizeLands(
   deck: Deck,
   mode: "budget" | "rich",
@@ -147,8 +176,7 @@ export async function optimizeLands(
   if (allowed.size >= 2 && !existingLandNames.has("Command Tower")) {
     try {
       const ct = await scryfall.cardByName("Command Tower");
-      if (ct) {
-        landsToAdd.push({ card: ct, reason: "Auto-include: fixes all your colors" });
+      if (ct && pushIfLand(landsToAdd, ct, "Auto-include: fixes all your colors")) {
         seen.add(ct.name);
       }
     } catch {}
@@ -173,12 +201,11 @@ export async function optimizeLands(
         const price = parseFloat(card.prices.usd ?? "0");
         // Budget mode: only include lands at or below the cap
         if (mode === "budget" && price > BUDGET_PRICE_CAP_USD) continue;
-        seen.add(card.name);
         const priceLabel = card.prices.usd ? ` ($${card.prices.usd})` : "";
-        landsToAdd.push({
-          card,
-          reason: price > BUDGET_PRICE_CAP_USD ? `Premium land${priceLabel}` : `Utility land${priceLabel}`,
-        });
+        const reason = price > BUDGET_PRICE_CAP_USD
+          ? `Premium land${priceLabel}`
+          : `Utility land${priceLabel}`;
+        if (pushIfLand(landsToAdd, card, reason)) seen.add(card.name);
       }
     } catch {}
   }
@@ -196,8 +223,9 @@ export async function optimizeLands(
           const list = await scryfall.searchCards(`${q} ${idQ}`, { order: "edhrec" });
           for (const card of list.data.slice(0, mode === "rich" ? 4 : 2)) {
             if (seen.has(card.name) || existingLandNames.has(card.name)) continue;
-            seen.add(card.name);
-            landsToAdd.push({ card, reason: `Dual land (${pair})` });
+            if (pushIfLand(landsToAdd, card, `Dual land (${pair})`)) {
+              seen.add(card.name);
+            }
           }
         } catch {}
       }
@@ -214,8 +242,7 @@ export async function optimizeLands(
       );
       for (const card of list.data.slice(0, 3)) {
         if (seen.has(card.name) || existingLandNames.has(card.name)) continue;
-        seen.add(card.name);
-        landsToAdd.push({ card, reason: "Triome/tri-land" });
+        if (pushIfLand(landsToAdd, card, "Triome/tri-land")) seen.add(card.name);
       }
     } catch {}
   }
@@ -239,11 +266,10 @@ export async function optimizeLands(
       if (count <= 0) continue;
       try {
         const basic = await scryfall.cardByName(BASIC_NAMES[color]);
-        landsToAdd.push({
-          card: basic,
-          reason: `Basic (${count}x for ${color} pips)`,
-          // Store the count in the reason; the component will parse it
-        });
+        // pushIfLand also serves as a sanity check for basics — Scryfall
+        // sometimes resolves a name to a non-basic card if the canonical
+        // basic was renamed in a recent set; this guard catches it.
+        pushIfLand(landsToAdd, basic, `Basic (${count}x for ${color} pips)`);
       } catch {}
     }
   }
