@@ -17,7 +17,11 @@ interface Props {
 }
 
 export function RecommendationsFeed({ deck, onInspect }: Props) {
-  const { addCard } = useDeckStore();
+  const { addCard, fastAddToCollection } = useDeckStore();
+  const fastAddGroupId = useDeckStore((s) => s.profile.fastAddGroupId);
+  const collectionGroups = useDeckStore((s) => s.collectionGroups);
+  const fastAddGroupName =
+    collectionGroups?.[fastAddGroupId ?? ""]?.name ?? "Collection";
   const commander = deck.commanderId ? deck.entries[deck.commanderId]?.card : undefined;
   const partner = deck.partnerId ? deck.entries[deck.partnerId]?.card : undefined;
   const [recs, setRecs] = useState<Recommendation[]>([]);
@@ -194,8 +198,28 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
       {error && <div className="panel p-4 text-red-400 text-sm mb-3">{error}</div>}
 
       <div className="flex-1 overflow-y-auto pr-2">
-        {section === "All" ? <GroupedFeed recs={filtered} onAdd={add} onInspect={onInspect} flash={flash} hover={hover} /> : (
-          <FeedGrid recs={filtered} onAdd={add} onInspect={onInspect} flash={flash} hover={hover} />
+        {section === "All" ? (
+          <GroupedFeed
+            recs={filtered}
+            onAdd={add}
+            onInspect={onInspect}
+            flash={flash}
+            hover={hover}
+            onFastAddToCollection={fastAddToCollection}
+            fastAddGroupName={fastAddGroupName}
+            ownedNames={ownedNames}
+          />
+        ) : (
+          <FeedGrid
+            recs={filtered}
+            onAdd={add}
+            onInspect={onInspect}
+            flash={flash}
+            hover={hover}
+            onFastAddToCollection={fastAddToCollection}
+            fastAddGroupName={fastAddGroupName}
+            ownedNames={ownedNames}
+          />
         )}
         {!loading && filtered.length === 0 && (
           <div className="text-center text-zinc-500 py-12 text-sm">
@@ -208,19 +232,19 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
   );
 }
 
-function GroupedFeed({
-  recs,
-  onAdd,
-  onInspect,
-  flash,
-  hover,
-}: {
+interface FeedRowProps {
   recs: Recommendation[];
   onAdd: (r: Recommendation) => void;
   onInspect: (c: Card) => void;
   flash: Set<string>;
   hover: CardHover;
-}) {
+  onFastAddToCollection: (card: Card) => void;
+  fastAddGroupName: string;
+  ownedNames: Set<string>;
+}
+
+function GroupedFeed(props: FeedRowProps) {
+  const { recs } = props;
   const groups = new Map<string, Recommendation[]>();
   for (const r of recs) {
     if (!groups.has(r.section)) groups.set(r.section, []);
@@ -235,30 +259,28 @@ function GroupedFeed({
               {sec} <span className="text-zinc-500 text-sm font-sans ml-1">{items.length}</span>
             </h3>
           </div>
-          <FeedGrid recs={items} onAdd={onAdd} onInspect={onInspect} flash={flash} hover={hover} />
+          <FeedGrid {...props} recs={items} />
         </section>
       ))}
     </div>
   );
 }
 
-function FeedGrid({
-  recs,
-  onAdd,
-  onInspect,
-  flash,
-  hover,
-}: {
-  recs: Recommendation[];
-  onAdd: (r: Recommendation) => void;
-  onInspect: (c: Card) => void;
-  flash: Set<string>;
-  hover: CardHover;
-}) {
+function FeedGrid({ recs, onAdd, onInspect, flash, hover, onFastAddToCollection, fastAddGroupName, ownedNames }: FeedRowProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {recs.map((r) => (
-        <FeedCard key={r.card.id} r={r} onAdd={onAdd} onInspect={onInspect} flashing={flash.has(r.card.id)} hover={hover} />
+        <FeedCard
+          key={r.card.id}
+          r={r}
+          onAdd={onAdd}
+          onInspect={onInspect}
+          flashing={flash.has(r.card.id)}
+          hover={hover}
+          onFastAddToCollection={onFastAddToCollection}
+          fastAddGroupName={fastAddGroupName}
+          owned={ownedNames.has(r.card.name)}
+        />
       ))}
     </div>
   );
@@ -270,12 +292,18 @@ function FeedCard({
   onInspect,
   flashing,
   hover,
+  onFastAddToCollection,
+  fastAddGroupName,
+  owned,
 }: {
   r: Recommendation;
   onAdd: (r: Recommendation) => void;
   onInspect: (c: Card) => void;
   flashing: boolean;
   hover: CardHover;
+  onFastAddToCollection: (card: Card) => void;
+  fastAddGroupName: string;
+  owned: boolean;
 }) {
   const img = frontImage(r.card, "normal");
   return (
@@ -313,7 +341,18 @@ function FeedCard({
             onClick={() => onAdd(r)}
             className="btn btn-primary text-[11px] px-2 py-1 flex-1 justify-center"
           >
-            + Add to deck
+            + Deck
+          </button>
+          <button
+            onClick={() => onFastAddToCollection(r.card)}
+            className={`btn text-[11px] px-2 py-1 flex-1 justify-center ${
+              owned
+                ? "bg-amber-900/40 border border-amber-700/40 text-amber-200 hover:bg-amber-900/60"
+                : "btn-ghost"
+            }`}
+            title={`⚡ Add to ${fastAddGroupName}${owned ? " (already owned)" : ""}`}
+          >
+            ⚡ {owned ? "+1 owned" : "+ Coll"}
           </button>
           {safeHttpUrl(r.card.purchase_uris?.tcgplayer) && (
             <a

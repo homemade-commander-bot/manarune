@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Card, Ruling } from "@/lib/types";
 import { scryfall, frontImage, backImage, safeHttpUrl } from "@/lib/scryfall";
 import { ManaCost } from "./ManaCost";
-import { useDeckStore } from "@/lib/store";
+import { useDeckStore, entryQuantity, entryFoilQuantity, DEFAULT_GROUP_ID } from "@/lib/store";
 
 interface Props {
   card: Card | null;
@@ -16,13 +16,19 @@ export function CardDetail({ card, deckId, onClose }: Props) {
   const { addCard, removeCard, setCommander, decks, addToCollection, removeFromCollection } =
     useDeckStore();
   const collectionEntry = useDeckStore((s) => (card ? s.collection?.[card.id] : undefined));
+  const collectionGroups = useDeckStore((s) => s.collectionGroups);
+  const fastAddGroupId = useDeckStore((s) => s.profile.fastAddGroupId ?? DEFAULT_GROUP_ID);
   const [rulings, setRulings] = useState<Ruling[] | null>(null);
   const [loadingRulings, setLoadingRulings] = useState(false);
   const [showBack, setShowBack] = useState(false);
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
 
   const inDeck = !!(card && deckId && decks[deckId]?.entries[card.id]);
   const isCommander = !!(card && deckId && decks[deckId]?.commanderId === card.id);
-  const ownedCount = (collectionEntry?.quantity ?? 0) + (collectionEntry?.foilQuantity ?? 0);
+  const ownedCount = collectionEntry
+    ? entryQuantity(collectionEntry) + entryFoilQuantity(collectionEntry)
+    : 0;
+  const fastAddGroup = collectionGroups?.[fastAddGroupId] ?? collectionGroups?.[DEFAULT_GROUP_ID];
 
   useEffect(() => {
     setRulings(null);
@@ -129,24 +135,32 @@ export function CardDetail({ card, deckId, onClose }: Props) {
                 </>
               )}
               <button
-                onClick={() => addToCollection(card, 1, false)}
+                onClick={() => addToCollection(card, 1, false, fastAddGroupId)}
                 className="btn btn-ghost"
-                title="Add 1 non-foil copy to your collection"
+                title={`Add 1 non-foil copy to ${fastAddGroup?.name ?? "your collection"}`}
               >
-                + Collection {ownedCount > 0 && <span className="ml-1 text-amber-300">({ownedCount} owned)</span>}
+                ⚡ + {fastAddGroup?.name ?? "Collection"}
+                {ownedCount > 0 && <span className="ml-1 text-amber-300">({ownedCount} owned)</span>}
               </button>
               <button
-                onClick={() => addToCollection(card, 1, true)}
+                onClick={() => addToCollection(card, 1, true, fastAddGroupId)}
                 className="btn btn-ghost"
-                title="Add 1 foil copy to your collection"
+                title={`Add 1 foil copy to ${fastAddGroup?.name ?? "your collection"}`}
               >
                 + Foil
               </button>
+              <button
+                onClick={() => setShowGroupPicker((v) => !v)}
+                className="btn btn-ghost"
+                title="Add to a specific collection group"
+              >
+                ▾ Group…
+              </button>
               {ownedCount > 0 && (
                 <button
-                  onClick={() => removeFromCollection(card.id, 1, false)}
+                  onClick={() => removeFromCollection(card.id, 1, false, fastAddGroupId)}
                   className="btn btn-ghost text-zinc-400 hover:!text-red-400"
-                  title="Remove 1 from your collection"
+                  title={`Remove 1 from ${fastAddGroup?.name ?? "your collection"}`}
                 >
                   − Collection
                 </button>
@@ -172,6 +186,58 @@ export function CardDetail({ card, deckId, onClose }: Props) {
                 </a>
               )}
             </div>
+
+            {showGroupPicker && collectionGroups && (
+              <div className="mt-2 panel p-3 bg-bg-raised">
+                <div className="text-[11px] uppercase tracking-wider text-zinc-400 mb-2">
+                  Add to a specific group
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.values(collectionGroups)
+                    .sort((a, b) => {
+                      if (a.id === DEFAULT_GROUP_ID) return -1;
+                      if (b.id === DEFAULT_GROUP_ID) return 1;
+                      return a.createdAt - b.createdAt;
+                    })
+                    .map((g) => {
+                      const inGroup = collectionEntry
+                        ? entryQuantity(collectionEntry, g.id) + entryFoilQuantity(collectionEntry, g.id)
+                        : 0;
+                      return (
+                        <div key={g.id} className="flex items-center gap-1 bg-bg-base border border-bg-border rounded px-2 py-1">
+                          <span className="text-xs text-zinc-200">{g.name}</span>
+                          {inGroup > 0 && (
+                            <span className="text-[10px] text-amber-300 font-mono">({inGroup})</span>
+                          )}
+                          <button
+                            onClick={() => addToCollection(card, 1, false, g.id)}
+                            className="text-xs text-emerald-400 hover:text-emerald-300 px-1"
+                            title={`+1 to ${g.name}`}
+                          >
+                            +
+                          </button>
+                          <button
+                            onClick={() => addToCollection(card, 1, true, g.id)}
+                            className="text-[10px] text-amber-400 hover:text-amber-300 px-1"
+                            title={`+1 foil to ${g.name}`}
+                          >
+                            +F
+                          </button>
+                          {inGroup > 0 && (
+                            <button
+                              onClick={() => removeFromCollection(card.id, 1, false, g.id)}
+                              className="text-xs text-zinc-500 hover:text-red-400 px-1"
+                              title={`-1 from ${g.name}`}
+                            >
+                              −
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             <div className="mt-4">
               <h3 className="text-sm font-semibold text-amber-400 mb-1">Official rulings</h3>

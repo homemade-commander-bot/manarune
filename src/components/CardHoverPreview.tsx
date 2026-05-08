@@ -19,8 +19,13 @@
 //       <CardHoverLayer hover={hover} />
 //     </>
 //   );
+//
+// The layer renders into a portal at document.body so its z-index can
+// never be trapped by an ancestor's stacking context (sticky header,
+// backdrop-filter, etc.).
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { frontImage } from "@/lib/scryfall";
 import type { Card } from "@/lib/types";
 
@@ -58,25 +63,33 @@ export function useCardHover(): CardHover {
 // Convenience: spread the result on any element that should bind hover.
 //
 //   <div {...hoverProps(card, hover)}>...</div>
+//
+// Note: deliberately does NOT define onDragStart, so consumers can
+// also spread dragSourceProps() on the same element without one
+// overriding the other. The hover preview uses pointer-events:none so
+// it never interferes with drag.
 export function hoverProps(card: Card, hover: CardHover) {
   return {
     onMouseEnter: (e: React.MouseEvent) => hover.show(card, e),
     onMouseMove: (e: React.MouseEvent) => hover.move(e),
     onMouseLeave: () => hover.hide(),
-    // Hide the preview while a drag begins — the OS drag image and a
-    // floating card preview together is visually cluttered, and the
-    // preview's pointer-events:none means it doesn't move with the
-    // drag anyway.
-    onDragStart: () => hover.hide(),
   };
 }
 
 // Render the floating preview. Place once at the root of the
 // component that owns the hover state. Returns null when no card is
-// hovered, so it costs nothing when idle.
+// hovered, so it costs nothing when idle. Portals to document.body
+// to escape any ancestor stacking context.
 export function CardHoverLayer({ hover }: { hover: CardHover }) {
-  if (!hover.card) return null;
-  return <CardHoverPreview card={hover.card} cursorX={hover.x} cursorY={hover.y} />;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted || !hover.card || typeof document === "undefined") return null;
+  return createPortal(
+    <CardHoverPreview card={hover.card} cursorX={hover.x} cursorY={hover.y} />,
+    document.body,
+  );
 }
 
 export function CardHoverPreview({
@@ -108,8 +121,11 @@ export function CardHoverPreview({
   }
   if (left < VIEWPORT_PAD) left = VIEWPORT_PAD;
 
-  // Vertical: center on cursor, clamped to viewport.
-  let top = cursorY - PREVIEW_H / 2;
+  // Vertical: anchor near the cursor with a slight upward bias so the
+  // bulk of the card sits within the user's natural reading line. We
+  // place the preview so the cursor lands roughly a third of the way
+  // down its height, then clamp to viewport.
+  let top = cursorY - Math.round(PREVIEW_H * 0.33);
   if (top < VIEWPORT_PAD) top = VIEWPORT_PAD;
   if (top + PREVIEW_H + VIEWPORT_PAD > vh) {
     top = vh - PREVIEW_H - VIEWPORT_PAD;

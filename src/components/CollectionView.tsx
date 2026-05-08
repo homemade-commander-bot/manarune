@@ -1,7 +1,8 @@
 "use client";
 
 // The /collection page: lets the user browse, filter, search, and edit
-// their card collection. Filters are local except for the Scryfall-syntax
+// their card collection across one or more user-defined groups
+// (sub-collections). Filters are local except for the Scryfall-syntax
 // search, which goes through Scryfall's /cards/search endpoint and then
 // intersects with the collection by card.id (so the user sees only what
 // they own that matches the syntax).
@@ -10,7 +11,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   collectionStats,
   useDeckStore,
+  entryQuantity,
+  entryFoilQuantity,
   type CollectionEntry,
+  type CollectionGroup,
+  DEFAULT_GROUP_ID,
 } from "@/lib/store";
 import type { Card } from "@/lib/types";
 import { scryfall, frontImage } from "@/lib/scryfall";
@@ -22,13 +27,37 @@ import { ConfirmDialog } from "./ConfirmDialog";
 type SortMode = "name" | "value" | "set" | "added";
 
 const COLORS = ["W", "U", "B", "R", "G"] as const;
+const ALL_GROUPS = "__all__";
 
 export function CollectionView() {
   const collection = useDeckStore((s) => s.collection);
-  const { addToCollection, removeFromCollection, setCollectionQuantity, clearCollection } =
-    useDeckStore();
-  const stats = useMemo(() => collectionStats(collection), [collection]);
-  const allEntries = useMemo(() => Object.values(collection), [collection]);
+  const groups = useDeckStore((s) => s.collectionGroups);
+  const fastAddGroupId = useDeckStore((s) => s.profile.fastAddGroupId ?? DEFAULT_GROUP_ID);
+  const {
+    addToCollection,
+    removeFromCollection,
+    setCollectionQuantity,
+    clearCollection,
+  } = useDeckStore();
+
+  const groupList = useMemo(
+    () =>
+      Object.values(groups ?? {}).sort((a, b) => {
+        if (a.id === DEFAULT_GROUP_ID) return -1;
+        if (b.id === DEFAULT_GROUP_ID) return 1;
+        return a.createdAt - b.createdAt;
+      }),
+    [groups],
+  );
+
+  // Currently selected group (or ALL_GROUPS for the aggregate view).
+  const [activeGroupId, setActiveGroupId] = useState<string>(DEFAULT_GROUP_ID);
+  const activeGroupArg = activeGroupId === ALL_GROUPS ? undefined : activeGroupId;
+
+  const stats = useMemo(
+    () => collectionStats(collection, activeGroupArg),
+    [collection, activeGroupArg],
+  );
 
   // ---- Local filters ----
   const [nameQuery, setNameQuery] = useState("");
@@ -43,16 +72,27 @@ export function CollectionView() {
   const [sort, setSort] = useState<SortMode>("name");
   const [inspect, setInspect] = useState<Card | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showGroupManager, setShowGroupManager] = useState(false);
   const hover = useCardHover();
 
-  // Distinct sets present in the collection — feeds the Set filter dropdown.
-  const setsInCollection = useMemo(() => {
-    const m = new Map<string, string>(); // code -> name
-    for (const e of allEntries) {
-      m.set(e.card.set.toUpperCase(), e.card.set_name ?? e.card.set.toUpperCase());
+  // Entries that belong in the current group view.
+  const entries = useMemo(() => {
+    const all = Object.values(collection);
+    if (activeGroupId === ALL_GROUPS) {
+      return all.filter((e) => entryQuantity(e) + entryFoilQuantity(e) > 0);
     }
+    return all.filter(
+      (e) =>
+        entryQuantity(e, activeGroupId) + entryFoilQuantity(e, activeGroupId) > 0,
+    );
+  }, [collection, activeGroupId]);
+
+  // Distinct sets present in the visible entries.
+  const setsInView = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of entries) m.set(e.card.set.toUpperCase(), e.card.set_name ?? e.card.set.toUpperCase());
     return Array.from(m.entries()).sort(([, a], [, b]) => a.localeCompare(b));
-  }, [allEntries]);
+  }, [entries]);
 
   // ---- Run Scryfall search when scryfallQuery changes (debounced) ----
   useEffect(() => {
@@ -70,7 +110,7 @@ export function CollectionView() {
         setScryfallIds(ids);
       } catch (e) {
         setScryfallError(e instanceof Error ? e.message : "Scryfall query failed");
-        setScryfallIds(new Set()); // fail closed: nothing matches
+        setScryfallIds(new Set());
       } finally {
         setScryfallLoading(false);
       }
@@ -81,7 +121,7 @@ export function CollectionView() {
   const visible = useMemo(() => {
     const min = parseFloat(minValue);
     const max = parseFloat(maxValue);
-    let out = allEntries;
+    let out = entries;
     if (nameQuery.trim()) {
       const q = nameQuery.trim().toLowerCase();
       out = out.filter((e) => e.card.name.toLowerCase().includes(q));
@@ -116,11 +156,17 @@ export function CollectionView() {
       );
     else if (sort === "added") out = [...out].sort((a, b) => b.acquiredAt - a.acquiredAt);
     return out;
-  }, [allEntries, nameQuery, scryfallIds, setFilter, colorFilter, minValue, maxValue, sort]);
+  }, [entries, nameQuery, scryfallIds, setFilter, colorFilter, minValue, maxValue, sort]);
 
   function toggleColor(c: string) {
     setColorFilter((cur) => (cur.includes(c) ? cur.filter((x) => x !== c) : [...cur, c]));
   }
+
+  // The group we'll mutate when the user clicks +/- on a card. ALL view
+  // points its writes at the default group as a sane default.
+  const writeGroupId = activeGroupId === ALL_GROUPS ? DEFAULT_GROUP_ID : activeGroupId;
+  const activeGroup = groups[activeGroupId === ALL_GROUPS ? DEFAULT_GROUP_ID : activeGroupId];
+  const fastAddGroup = groups[fastAddGroupId] ?? groups[DEFAULT_GROUP_ID];
 
   return (
     <div className="max-w-[1500px] mx-auto px-4 py-6 space-y-5">
@@ -132,10 +178,21 @@ export function CollectionView() {
               Your Collection
             </h1>
             <p className="text-zinc-400 text-sm mt-1">
-              Stored locally in your browser. Add cards from the search panel or any card&rsquo;s detail view.
+              Stored locally in your browser. Add cards from any card&rsquo;s detail view, the search panel, or the recommendation feed.
             </p>
+            {fastAddGroup && (
+              <p className="text-[11px] text-zinc-500 mt-1">
+                Quick-add target: <span className="text-amber-300">{fastAddGroup.name}</span>
+                <button
+                  onClick={() => setShowGroupManager(true)}
+                  className="ml-2 underline hover:text-amber-400"
+                >
+                  change
+                </button>
+              </p>
+            )}
           </div>
-          <div className="flex items-stretch gap-2">
+          <div className="flex items-stretch gap-2 flex-wrap">
             <StatTile label="Unique" value={stats.uniqueCards.toLocaleString()} />
             <StatTile label="Total cards" value={stats.totalCards.toLocaleString()} />
             <StatTile
@@ -143,17 +200,49 @@ export function CollectionView() {
               value={`$${stats.estimatedValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
               accent="emerald"
             />
-            {allEntries.length > 0 && (
+            <button
+              onClick={() => setShowGroupManager(true)}
+              className="btn btn-ghost text-xs self-end"
+              title="Create or manage collection groups"
+            >
+              Manage groups
+            </button>
+            {entries.length > 0 && activeGroupId === ALL_GROUPS && (
               <button
                 onClick={() => setConfirmClear(true)}
                 className="btn btn-ghost text-xs self-end hover:!text-red-400"
                 title="Remove every card from your collection"
               >
-                Clear collection
+                Clear all
               </button>
             )}
           </div>
         </div>
+      </section>
+
+      {/* Group tabs */}
+      <section className="flex items-center gap-1 flex-wrap">
+        <GroupTab
+          label="All groups"
+          active={activeGroupId === ALL_GROUPS}
+          onClick={() => setActiveGroupId(ALL_GROUPS)}
+        />
+        {groupList.map((g) => (
+          <GroupTab
+            key={g.id}
+            label={g.name}
+            active={activeGroupId === g.id}
+            isFastAdd={g.id === fastAddGroupId}
+            onClick={() => setActiveGroupId(g.id)}
+          />
+        ))}
+        <button
+          onClick={() => setShowGroupManager(true)}
+          className="text-xs px-2 py-1 rounded text-zinc-400 hover:text-amber-300 hover:bg-bg-raised"
+          title="Create a new group"
+        >
+          + New group
+        </button>
       </section>
 
       {/* Filters */}
@@ -188,8 +277,8 @@ export function CollectionView() {
               onChange={(e) => setSetFilter(e.target.value)}
               className="bg-bg-raised border border-bg-border rounded px-2 py-1"
             >
-              <option value="All">All ({setsInCollection.length})</option>
-              {setsInCollection.map(([code, name]) => (
+              <option value="All">All ({setsInView.length})</option>
+              {setsInView.map(([code, name]) => (
                 <option key={code} value={code}>
                   {name} · {code}
                 </option>
@@ -257,10 +346,14 @@ export function CollectionView() {
 
       {/* Grid */}
       <section>
-        {allEntries.length === 0 ? (
+        {entries.length === 0 ? (
           <div className="panel p-12 text-center text-zinc-400">
             <div className="text-5xl mb-3">📦</div>
-            <h3 className="font-display text-xl text-amber-300 mb-1">Your collection is empty</h3>
+            <h3 className="font-display text-xl text-amber-300 mb-1">
+              {activeGroupId === ALL_GROUPS
+                ? "Your collection is empty"
+                : `${activeGroup?.name ?? "Group"} is empty`}
+            </h3>
             <p className="text-sm">
               Add cards from the search panel on the build page, or from any card&rsquo;s detail view.
             </p>
@@ -275,10 +368,12 @@ export function CollectionView() {
               <CollectionCard
                 key={entry.cardId}
                 entry={entry}
+                groupId={activeGroupArg}
+                writeGroupId={writeGroupId}
                 onInspect={(c) => setInspect(c)}
-                onIncrement={(foil) => addToCollection(entry.card, 1, foil)}
-                onDecrement={(foil) => removeFromCollection(entry.cardId, 1, foil)}
-                onSetQuantity={(qty, foil) => setCollectionQuantity(entry.cardId, qty, foil)}
+                onIncrement={(foil) => addToCollection(entry.card, 1, foil, writeGroupId)}
+                onDecrement={(foil) => removeFromCollection(entry.cardId, 1, foil, writeGroupId)}
+                onSetQuantity={(qty, foil) => setCollectionQuantity(entry.cardId, qty, foil, writeGroupId)}
                 hoverProps={hoverProps(entry.card, hover)}
               />
             ))}
@@ -291,7 +386,7 @@ export function CollectionView() {
       <ConfirmDialog
         open={confirmClear}
         title="Clear entire collection?"
-        message="Every card and quantity will be removed. This cannot be undone."
+        message="Every card and quantity in every group will be removed. This cannot be undone."
         confirmLabel="Clear"
         cancelLabel="Keep"
         destructive
@@ -302,8 +397,48 @@ export function CollectionView() {
         onCancel={() => setConfirmClear(false)}
       />
 
+      {showGroupManager && (
+        <GroupManagerModal
+          onClose={() => setShowGroupManager(false)}
+          onSwitchTo={(id) => {
+            setActiveGroupId(id);
+            setShowGroupManager(false);
+          }}
+        />
+      )}
+
       <CardHoverLayer hover={hover} />
     </div>
+  );
+}
+
+function GroupTab({
+  label,
+  active,
+  isFastAdd,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  isFastAdd?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs px-3 py-1.5 rounded-md border transition flex items-center gap-1.5 ${
+        active
+          ? "bg-amber-600 border-amber-500 text-white"
+          : "bg-bg-raised border-bg-border text-zinc-300 hover:bg-bg-border"
+      }`}
+    >
+      <span>{label}</span>
+      {isFastAdd && (
+        <span title="Fast-add target" className="text-[9px] opacity-80">
+          ⚡
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -327,6 +462,7 @@ function StatTile({
 
 function CollectionCard({
   entry,
+  groupId,
   onInspect,
   onIncrement,
   onDecrement,
@@ -334,6 +470,8 @@ function CollectionCard({
   hoverProps,
 }: {
   entry: CollectionEntry;
+  groupId: string | undefined;     // for read (show qty in this group, or aggregate)
+  writeGroupId: string;            // for write (which group +/- mutates)
   onInspect: (c: Card) => void;
   onIncrement: (foil: boolean) => void;
   onDecrement: (foil: boolean) => void;
@@ -343,7 +481,9 @@ function CollectionCard({
   const img = frontImage(entry.card, "normal");
   const usd = parseFloat(entry.card.prices?.usd ?? "0") || 0;
   const usdFoil = parseFloat(entry.card.prices?.usd_foil ?? entry.card.prices?.usd ?? "0") || 0;
-  const totalValue = entry.quantity * usd + entry.foilQuantity * usdFoil;
+  const qty = entryQuantity(entry, groupId);
+  const foilQty = entryFoilQuantity(entry, groupId);
+  const totalValue = qty * usd + foilQty * usdFoil;
   return (
     <article {...hoverProps} className="panel overflow-hidden flex flex-col">
       <button onClick={() => onInspect(entry.card)} className="block w-full text-left">
@@ -371,14 +511,14 @@ function CollectionCard({
         <div className="grid grid-cols-2 gap-1 pt-1">
           <QtyControl
             label="Reg"
-            quantity={entry.quantity}
+            quantity={qty}
             onMinus={() => onDecrement(false)}
             onPlus={() => onIncrement(false)}
             onSet={(q) => onSetQuantity(q, false)}
           />
           <QtyControl
             label="Foil"
-            quantity={entry.foilQuantity}
+            quantity={foilQty}
             onMinus={() => onDecrement(true)}
             onPlus={() => onIncrement(true)}
             onSet={(q) => onSetQuantity(q, true)}
@@ -405,9 +545,10 @@ function QtyControl({
   onSet: (q: number) => void;
   accent?: "amber";
 }) {
-  const valueClass = accent === "amber"
-    ? quantity > 0 ? "text-amber-300" : "text-zinc-500"
-    : quantity > 0 ? "text-zinc-100" : "text-zinc-500";
+  const valueClass =
+    accent === "amber"
+      ? quantity > 0 ? "text-amber-300" : "text-zinc-500"
+      : quantity > 0 ? "text-zinc-100" : "text-zinc-500";
   return (
     <div className="flex items-center gap-1 bg-bg-raised border border-bg-border rounded px-1 py-0.5">
       <span className="text-[9px] uppercase tracking-wider text-zinc-500 w-6">{label}</span>
@@ -435,5 +576,210 @@ function QtyControl({
         +
       </button>
     </div>
+  );
+}
+
+// ---- Group manager modal ------------------------------------------------
+
+function GroupManagerModal({
+  onClose,
+  onSwitchTo,
+}: {
+  onClose: () => void;
+  onSwitchTo: (id: string) => void;
+}) {
+  const groups = useDeckStore((s) => s.collectionGroups);
+  const fastAddGroupId = useDeckStore((s) => s.profile.fastAddGroupId ?? DEFAULT_GROUP_ID);
+  const collection = useDeckStore((s) => s.collection);
+  const {
+    createCollectionGroup,
+    renameCollectionGroup,
+    deleteCollectionGroup,
+    setFastAddGroup,
+  } = useDeckStore();
+
+  const [newName, setNewName] = useState("");
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<CollectionGroup | null>(null);
+
+  const list = useMemo(
+    () =>
+      Object.values(groups ?? {}).sort((a, b) => {
+        if (a.id === DEFAULT_GROUP_ID) return -1;
+        if (b.id === DEFAULT_GROUP_ID) return 1;
+        return a.createdAt - b.createdAt;
+      }),
+    [groups],
+  );
+
+  function countInGroup(id: string): number {
+    let n = 0;
+    for (const e of Object.values(collection)) {
+      const g = e.groupQuantities?.[id];
+      if (g) n += g.quantity + g.foilQuantity;
+    }
+    return n;
+  }
+
+  function handleCreate() {
+    const name = newName.trim();
+    if (!name) return;
+    const id = createCollectionGroup(name);
+    setNewName("");
+    onSwitchTo(id);
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_120ms_ease-out]"
+        onClick={onClose}
+      >
+        <div
+          className="panel w-full max-w-lg p-5 space-y-4 animate-[popIn_140ms_ease-out]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="font-display text-xl text-amber-300">Collection groups</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Create sub-collections (binders, trade lists, deck piles). Pick one as the
+                ⚡ <span className="text-amber-300">fast-add</span> target — that&rsquo;s where the per-card
+                &ldquo;+ Collection&rdquo; button on recommendation/search cards puts them.
+              </p>
+            </div>
+            <button onClick={onClose} className="text-zinc-400 hover:text-white text-2xl leading-none">×</button>
+          </div>
+
+          {/* List */}
+          <ul className="space-y-1.5">
+            {list.map((g) => {
+              const isFastAdd = g.id === fastAddGroupId;
+              const isDefault = g.id === DEFAULT_GROUP_ID;
+              const count = countInGroup(g.id);
+              return (
+                <li
+                  key={g.id}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded border ${
+                    isFastAdd ? "border-amber-600/40 bg-amber-900/10" : "border-bg-border bg-bg-raised"
+                  }`}
+                >
+                  {renameId === g.id ? (
+                    <>
+                      <input
+                        value={renameValue}
+                        autoFocus
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            renameCollectionGroup(g.id, renameValue);
+                            setRenameId(null);
+                          } else if (e.key === "Escape") {
+                            setRenameId(null);
+                          }
+                        }}
+                        className="flex-1 bg-bg-base border border-bg-border rounded px-2 py-1 text-sm"
+                      />
+                      <button
+                        onClick={() => {
+                          renameCollectionGroup(g.id, renameValue);
+                          setRenameId(null);
+                        }}
+                        className="text-xs text-emerald-400 hover:underline"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setRenameId(null)}
+                        className="text-xs text-zinc-400 hover:underline"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => onSwitchTo(g.id)}
+                        className="flex-1 text-left text-sm font-medium text-zinc-100 hover:text-amber-300 truncate"
+                        title="Switch to this group"
+                      >
+                        {g.name}
+                        {isDefault && (
+                          <span className="ml-1.5 text-[10px] text-zinc-500 uppercase tracking-wider">default</span>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-zinc-400 font-mono">{count}</span>
+                      <button
+                        onClick={() => setFastAddGroup(g.id)}
+                        className={`text-[11px] px-2 py-0.5 rounded border ${
+                          isFastAdd
+                            ? "border-amber-500 bg-amber-600 text-white"
+                            : "border-bg-border text-zinc-400 hover:text-amber-300"
+                        }`}
+                        title={isFastAdd ? "This is the fast-add target" : "Make this the fast-add target"}
+                      >
+                        {isFastAdd ? "⚡ fast-add" : "set fast-add"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setRenameId(g.id);
+                          setRenameValue(g.name);
+                        }}
+                        className="text-[11px] text-zinc-400 hover:text-amber-300 px-1"
+                        title="Rename"
+                      >
+                        ✎
+                      </button>
+                      {!isDefault && (
+                        <button
+                          onClick={() => setConfirmDelete(g)}
+                          className="text-[11px] text-zinc-400 hover:text-red-400 px-1"
+                          title="Delete (cards move to default)"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Create */}
+          <div className="flex items-center gap-2 pt-2 border-t border-bg-border">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+              placeholder="New group name (e.g. Trade binder)"
+              className="flex-1 bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm"
+            />
+            <button onClick={handleCreate} className="btn btn-primary">
+              + Create
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          open={confirmDelete !== null}
+          title={`Delete "${confirmDelete.name}"?`}
+          message={`Cards in this group will move to "${groups[DEFAULT_GROUP_ID]?.name ?? "Main collection"}". The group itself will be removed.`}
+          confirmLabel="Delete group"
+          cancelLabel="Keep"
+          destructive
+          onConfirm={() => {
+            deleteCollectionGroup(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+    </>
   );
 }

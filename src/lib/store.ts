@@ -16,6 +16,9 @@ export interface Profile {
   createdAt: number;
   preferredColors: string[];
   favoriteThemes: string[];
+  // Which collection group the per-card "+ Collection" / fast-add
+  // button targets. Defaults to the always-present "default" group.
+  fastAddGroupId?: string;
 }
 
 const defaultProfile = (): Profile => ({
@@ -24,18 +27,34 @@ const defaultProfile = (): Profile => ({
   createdAt: Date.now(),
   preferredColors: [],
   favoriteThemes: [],
+  fastAddGroupId: DEFAULT_GROUP_ID,
 });
+
+// A user-defined group ("Main collection", "Trade binder", "Tergrid
+// pile", etc.). The store always carries a "default" group that
+// can't be deleted; users can create as many additional groups as
+// they like and pick one as the fast-add target. Cards live in one
+// or more groups via per-group quantities on each entry.
+export interface CollectionGroup {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export const DEFAULT_GROUP_ID = "default";
 
 // A single owned printing, keyed by Scryfall card.id (so different
 // printings of the same card are tracked independently). Foil and
 // non-foil counts are kept separate because they have different
 // market values and most collectors care which they own.
+//
+// Group-aware: per-group quantities live in `groupQuantities`. The
+// top-level totals are derived (entryQuantity / entryFoilQuantity).
 export interface CollectionEntry {
   cardId: string;
   card: Card;
-  quantity: number;       // non-foil count
-  foilQuantity: number;
   acquiredAt: number;
+  groupQuantities: Record<string, { quantity: number; foilQuantity: number }>;
 }
 
 interface DeckStore {
@@ -47,6 +66,9 @@ interface DeckStore {
   // multiple printings of the same card live as separate entries (Beta
   // Lightning Bolt vs. M11 Lightning Bolt).
   collection: Record<string, CollectionEntry>;
+
+  // User-defined collection groups. Always contains a "default" entry.
+  collectionGroups: Record<string, CollectionGroup>;
 
   // Session-only: card IDs the user has already seen in the SwipeFeed for
   // each deck this session. Cleared on commander change and on full
@@ -75,10 +97,18 @@ interface DeckStore {
   markSwiped: (deckId: string, cardId: string) => void;
   resetSwiped: (deckId: string) => void;
 
-  addToCollection: (card: Card, quantity?: number, foil?: boolean) => void;
-  removeFromCollection: (cardId: string, quantity?: number, foil?: boolean) => void;
-  setCollectionQuantity: (cardId: string, quantity: number, foil?: boolean) => void;
+  addToCollection: (card: Card, quantity?: number, foil?: boolean, groupId?: string) => void;
+  removeFromCollection: (cardId: string, quantity?: number, foil?: boolean, groupId?: string) => void;
+  setCollectionQuantity: (cardId: string, quantity: number, foil?: boolean, groupId?: string) => void;
   clearCollection: () => void;
+  // Convenience: adds 1 non-foil to whatever group is set as the
+  // user's fast-add target (defaults to the "default" group).
+  fastAddToCollection: (card: Card) => void;
+
+  createCollectionGroup: (name: string) => string;
+  renameCollectionGroup: (id: string, name: string) => void;
+  deleteCollectionGroup: (id: string) => void;
+  setFastAddGroup: (id: string) => void;
 }
 
 const emptyDeck = (name = "New Deck"): Deck => ({
@@ -99,6 +129,13 @@ export const useDeckStore = create<DeckStore>()(
       decks: {},
       activeDeckId: null,
       collection: {},
+      collectionGroups: {
+        [DEFAULT_GROUP_ID]: {
+          id: DEFAULT_GROUP_ID,
+          name: "Main collection",
+          createdAt: Date.now(),
+        },
+      },
       swipedIds: {},
 
       setProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
@@ -277,64 +314,144 @@ export const useDeckStore = create<DeckStore>()(
           return { swipedIds: next };
         }),
 
-      addToCollection: (card, quantity = 1, foil = false) =>
+      addToCollection: (card, quantity = 1, foil = false, groupId = DEFAULT_GROUP_ID) =>
         set((s) => {
           const all = s.collection ?? {};
           const existing = all[card.id];
-          const next: CollectionEntry = existing
-            ? {
-                ...existing,
-                quantity: foil ? existing.quantity : existing.quantity + quantity,
-                foilQuantity: foil ? existing.foilQuantity + quantity : existing.foilQuantity,
-              }
-            : {
-                cardId: card.id,
-                card,
-                quantity: foil ? 0 : quantity,
-                foilQuantity: foil ? quantity : 0,
-                acquiredAt: Date.now(),
-              };
-          return { collection: { ...all, [card.id]: next } };
+          const groups = existing?.groupQuantities ?? {};
+          const cur = groups[groupId] ?? { quantity: 0, foilQuantity: 0 };
+          const nextGroup = {
+            quantity: foil ? cur.quantity : cur.quantity + quantity,
+            foilQuantity: foil ? cur.foilQuantity + quantity : cur.foilQuantity,
+          };
+          const nextEntry: CollectionEntry = {
+            cardId: card.id,
+            card,
+            acquiredAt: existing?.acquiredAt ?? Date.now(),
+            groupQuantities: { ...groups, [groupId]: nextGroup },
+          };
+          return { collection: { ...all, [card.id]: nextEntry } };
         }),
 
-      removeFromCollection: (cardId, quantity = 1, foil = false) =>
+      removeFromCollection: (cardId, quantity = 1, foil = false, groupId = DEFAULT_GROUP_ID) =>
         set((s) => {
           const all = s.collection ?? {};
           const existing = all[cardId];
           if (!existing) return s;
-          const nextQ = foil ? existing.quantity : Math.max(0, existing.quantity - quantity);
-          const nextF = foil ? Math.max(0, existing.foilQuantity - quantity) : existing.foilQuantity;
-          const next = { ...all };
+          const groups = existing.groupQuantities ?? {};
+          const cur = groups[groupId];
+          if (!cur) return s;
+          const nextQ = foil ? cur.quantity : Math.max(0, cur.quantity - quantity);
+          const nextF = foil ? Math.max(0, cur.foilQuantity - quantity) : cur.foilQuantity;
+          const nextGroups = { ...groups };
           if (nextQ === 0 && nextF === 0) {
+            delete nextGroups[groupId];
+          } else {
+            nextGroups[groupId] = { quantity: nextQ, foilQuantity: nextF };
+          }
+          const next = { ...all };
+          if (Object.keys(nextGroups).length === 0) {
             delete next[cardId];
           } else {
-            next[cardId] = { ...existing, quantity: nextQ, foilQuantity: nextF };
+            next[cardId] = { ...existing, groupQuantities: nextGroups };
           }
           return { collection: next };
         }),
 
-      setCollectionQuantity: (cardId, quantity, foil = false) =>
+      setCollectionQuantity: (cardId, quantity, foil = false, groupId = DEFAULT_GROUP_ID) =>
         set((s) => {
           const all = s.collection ?? {};
           const existing = all[cardId];
           if (!existing) return s;
-          const nextQ = foil ? existing.quantity : Math.max(0, quantity);
-          const nextF = foil ? Math.max(0, quantity) : existing.foilQuantity;
-          const next = { ...all };
+          const groups = existing.groupQuantities ?? {};
+          const cur = groups[groupId] ?? { quantity: 0, foilQuantity: 0 };
+          const nextQ = foil ? cur.quantity : Math.max(0, quantity);
+          const nextF = foil ? Math.max(0, quantity) : cur.foilQuantity;
+          const nextGroups = { ...groups };
           if (nextQ === 0 && nextF === 0) {
+            delete nextGroups[groupId];
+          } else {
+            nextGroups[groupId] = { quantity: nextQ, foilQuantity: nextF };
+          }
+          const next = { ...all };
+          if (Object.keys(nextGroups).length === 0) {
             delete next[cardId];
           } else {
-            next[cardId] = { ...existing, quantity: nextQ, foilQuantity: nextF };
+            next[cardId] = { ...existing, groupQuantities: nextGroups };
           }
           return { collection: next };
         }),
 
       clearCollection: () => set({ collection: {} }),
+
+      fastAddToCollection: (card) => {
+        const groupId = get().profile.fastAddGroupId ?? DEFAULT_GROUP_ID;
+        // If the saved fast-add group has been deleted, fall back to default.
+        const groups = get().collectionGroups ?? {};
+        const target = groups[groupId] ? groupId : DEFAULT_GROUP_ID;
+        get().addToCollection(card, 1, false, target);
+      },
+
+      createCollectionGroup: (name) => {
+        const id = `grp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        set((s) => ({
+          collectionGroups: {
+            ...(s.collectionGroups ?? {}),
+            [id]: { id, name: name.trim() || "Untitled group", createdAt: Date.now() },
+          },
+        }));
+        return id;
+      },
+
+      renameCollectionGroup: (id, name) =>
+        set((s) => {
+          const groups = s.collectionGroups ?? {};
+          const g = groups[id];
+          if (!g) return s;
+          return {
+            collectionGroups: { ...groups, [id]: { ...g, name: name.trim() || g.name } },
+          };
+        }),
+
+      deleteCollectionGroup: (id) =>
+        set((s) => {
+          if (id === DEFAULT_GROUP_ID) return s; // can't delete the default
+          const groups = { ...(s.collectionGroups ?? {}) };
+          if (!groups[id]) return s;
+          delete groups[id];
+          // Move any per-entry quantities from the deleted group into default.
+          const collection = { ...(s.collection ?? {}) };
+          for (const [cardId, entry] of Object.entries(collection)) {
+            const gq = entry.groupQuantities ?? {};
+            const removed = gq[id];
+            if (!removed) continue;
+            const nextGroups = { ...gq };
+            delete nextGroups[id];
+            const def = nextGroups[DEFAULT_GROUP_ID] ?? { quantity: 0, foilQuantity: 0 };
+            nextGroups[DEFAULT_GROUP_ID] = {
+              quantity: def.quantity + removed.quantity,
+              foilQuantity: def.foilQuantity + removed.foilQuantity,
+            };
+            collection[cardId] = { ...entry, groupQuantities: nextGroups };
+          }
+          // If profile pointed at the deleted group, reset fast-add to default.
+          const profile = s.profile.fastAddGroupId === id
+            ? { ...s.profile, fastAddGroupId: DEFAULT_GROUP_ID }
+            : s.profile;
+          return { collectionGroups: groups, collection, profile };
+        }),
+
+      setFastAddGroup: (id) =>
+        set((s) => {
+          const groups = s.collectionGroups ?? {};
+          if (!groups[id]) return s;
+          return { profile: { ...s.profile, fastAddGroupId: id } };
+        }),
     }),
     {
       name: "mtg-commander-deck-builder",
       storage: createJSONStorage(() => localStorage),
-      version: 4,
+      version: 5,
       // swipedIds is intentionally session-only (not persisted) — it's a
       // "don't show me this card twice this session" filter, not user data.
       partialize: (state) => ({
@@ -342,6 +459,7 @@ export const useDeckStore = create<DeckStore>()(
         decks: state.decks,
         activeDeckId: state.activeDeckId,
         collection: state.collection,
+        collectionGroups: state.collectionGroups,
       }),
       migrate: (state: unknown, fromVersion: number) => {
         let s = (state ?? {}) as Partial<DeckStore>;
@@ -364,6 +482,65 @@ export const useDeckStore = create<DeckStore>()(
           // v4: introduce the owned-cards collection.
           s = { ...s, collection: {} };
         }
+        if (fromVersion < 5) {
+          // v5: introduce per-group quantities and the collectionGroups
+          // store. Old entries had flat {quantity, foilQuantity}; convert
+          // them into a single "default" group.
+          const groups: Record<string, CollectionGroup> = s.collectionGroups ?? {
+            [DEFAULT_GROUP_ID]: {
+              id: DEFAULT_GROUP_ID,
+              name: "Main collection",
+              createdAt: Date.now(),
+            },
+          };
+          if (!groups[DEFAULT_GROUP_ID]) {
+            groups[DEFAULT_GROUP_ID] = {
+              id: DEFAULT_GROUP_ID,
+              name: "Main collection",
+              createdAt: Date.now(),
+            };
+          }
+          const collection: Record<string, CollectionEntry> = {};
+          if (s.collection) {
+            for (const [id, raw] of Object.entries(s.collection)) {
+              // raw may be the v4 shape (flat quantity/foilQuantity) or
+              // already the new shape from a partial migration.
+              const e = raw as unknown as {
+                cardId: string;
+                card: Card;
+                acquiredAt: number;
+                quantity?: number;
+                foilQuantity?: number;
+                groupQuantities?: Record<string, { quantity: number; foilQuantity: number }>;
+              };
+              if (e.groupQuantities) {
+                collection[id] = {
+                  cardId: e.cardId,
+                  card: e.card,
+                  acquiredAt: e.acquiredAt,
+                  groupQuantities: e.groupQuantities,
+                };
+              } else {
+                collection[id] = {
+                  cardId: e.cardId,
+                  card: e.card,
+                  acquiredAt: e.acquiredAt,
+                  groupQuantities: {
+                    [DEFAULT_GROUP_ID]: {
+                      quantity: e.quantity ?? 0,
+                      foilQuantity: e.foilQuantity ?? 0,
+                    },
+                  },
+                };
+              }
+            }
+          }
+          // Make sure the profile carries fastAddGroupId
+          const profile = s.profile
+            ? { ...s.profile, fastAddGroupId: s.profile.fastAddGroupId ?? DEFAULT_GROUP_ID }
+            : defaultProfile();
+          s = { ...s, collection, collectionGroups: groups, profile };
+        }
         return s as DeckStore;
       },
       // Belt-and-suspenders: on rehydrate, ensure session-only fields the
@@ -376,6 +553,19 @@ export const useDeckStore = create<DeckStore>()(
         }
         if (state && !state.collection) {
           state.collection = {};
+        }
+        if (state && (!state.collectionGroups || !state.collectionGroups[DEFAULT_GROUP_ID])) {
+          state.collectionGroups = {
+            ...(state.collectionGroups ?? {}),
+            [DEFAULT_GROUP_ID]: {
+              id: DEFAULT_GROUP_ID,
+              name: "Main collection",
+              createdAt: Date.now(),
+            },
+          };
+        }
+        if (state && !state.profile.fastAddGroupId) {
+          state.profile = { ...state.profile, fastAddGroupId: DEFAULT_GROUP_ID };
         }
       },
     },
@@ -394,28 +584,55 @@ export interface CollectionStats {
   estimatedValueUsd: number; // non-foil price + foil price (USD)
 }
 
-export function collectionStats(collection: Record<string, CollectionEntry>): CollectionStats {
+// Total non-foil count across all groups (or a specific group, if given).
+export function entryQuantity(entry: CollectionEntry, groupId?: string): number {
+  const groups = entry.groupQuantities ?? {};
+  if (groupId !== undefined) return groups[groupId]?.quantity ?? 0;
+  let s = 0;
+  for (const g of Object.values(groups)) s += g.quantity;
+  return s;
+}
+
+export function entryFoilQuantity(entry: CollectionEntry, groupId?: string): number {
+  const groups = entry.groupQuantities ?? {};
+  if (groupId !== undefined) return groups[groupId]?.foilQuantity ?? 0;
+  let s = 0;
+  for (const g of Object.values(groups)) s += g.foilQuantity;
+  return s;
+}
+
+export function entryTotal(entry: CollectionEntry, groupId?: string): number {
+  return entryQuantity(entry, groupId) + entryFoilQuantity(entry, groupId);
+}
+
+export function collectionStats(
+  collection: Record<string, CollectionEntry>,
+  groupId?: string,
+): CollectionStats {
   let unique = 0;
   let total = 0;
   let value = 0;
   for (const e of Object.values(collection)) {
-    const qty = e.quantity + e.foilQuantity;
+    const q = entryQuantity(e, groupId);
+    const f = entryFoilQuantity(e, groupId);
+    const qty = q + f;
     if (qty <= 0) continue;
     unique += 1;
     total += qty;
     const usd = parseFloat(e.card.prices?.usd ?? "0") || 0;
     const usdFoil = parseFloat(e.card.prices?.usd_foil ?? e.card.prices?.usd ?? "0") || 0;
-    value += e.quantity * usd + e.foilQuantity * usdFoil;
+    value += q * usd + f * usdFoil;
   }
   return { uniqueCards: unique, totalCards: total, estimatedValueUsd: value };
 }
 
-// Build a Set of names the user owns ≥1 of (any printing, any finish).
-// Cheaper than iterating the collection on every render of every card.
+// Build a Set of names the user owns ≥1 of (any printing, any finish,
+// any group). Cheaper than iterating the collection on every render of
+// every card.
 export function ownedCardNames(collection: Record<string, CollectionEntry>): Set<string> {
   const out = new Set<string>();
   for (const e of Object.values(collection)) {
-    if (e.quantity + e.foilQuantity > 0) out.add(e.card.name);
+    if (entryTotal(e) > 0) out.add(e.card.name);
   }
   return out;
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { scryfall } from "@/lib/scryfall";
-import { useDeckStore } from "@/lib/store";
+import { useDeckStore, ownedCardNames } from "@/lib/store";
 import { commanderColorIdentity, withinColorIdentity, colorIdentityString } from "@/lib/commander-rules";
 import type { Card, Deck } from "@/lib/types";
 import { CardThumb } from "./CardThumb";
@@ -16,7 +16,12 @@ interface Props {
 }
 
 export function CardSearch({ deck, onInspect }: Props) {
-  const { addCard } = useDeckStore();
+  const { addCard, fastAddToCollection } = useDeckStore();
+  const fastAddGroupId = useDeckStore((s) => s.profile.fastAddGroupId);
+  const collectionGroups = useDeckStore((s) => s.collectionGroups);
+  const collection = useDeckStore((s) => s.collection);
+  const ownedNames = useMemo(() => ownedCardNames(collection), [collection]);
+  const fastAddGroupName = collectionGroups?.[fastAddGroupId ?? ""]?.name ?? "Collection";
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,7 +151,18 @@ export function CardSearch({ deck, onInspect }: Props) {
                     onClick={() => add(c)}
                     className="btn btn-primary text-[11px] px-2 py-1 flex-1 justify-center"
                   >
-                    + Add
+                    + Deck
+                  </button>
+                  <button
+                    onClick={() => fastAddToCollection(c)}
+                    className={`btn text-[11px] px-2 py-1 flex-1 justify-center ${
+                      ownedNames.has(c.name)
+                        ? "bg-amber-900/40 border border-amber-700/40 text-amber-200 hover:bg-amber-900/60"
+                        : "btn-ghost"
+                    }`}
+                    title={`⚡ Add to ${fastAddGroupName}${ownedNames.has(c.name) ? " (already owned)" : ""}`}
+                  >
+                    ⚡ {ownedNames.has(c.name) ? "+1" : "+ Coll"}
                   </button>
                   <button onClick={() => onInspect(c)} className="btn btn-ghost text-[11px] px-2 py-1">
                     Info
