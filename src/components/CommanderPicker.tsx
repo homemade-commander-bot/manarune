@@ -9,6 +9,7 @@ import { useDeckStore } from "@/lib/store";
 import { seedNewDeckStaples } from "@/lib/lands";
 import { CardThumb } from "./CardThumb";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
+import { CardHoverLayer, hoverProps, useCardHover } from "./CardHoverPreview";
 import type { Card } from "@/lib/types";
 
 const COLOR_FILTERS: { label: string; value: string; color: string }[] = [
@@ -28,6 +29,7 @@ export function CommanderPicker() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autocomplete, setAutocomplete] = useState<string[]>([]);
+  const hover = useCardHover();
   const debounce = useRef<number | null>(null);
 
   // Run an initial "popular commanders" search so the page isn't empty.
@@ -170,7 +172,7 @@ export function CommanderPicker() {
         {error && <div className="panel p-4 text-red-400 text-sm">{error}</div>}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {results.map((c) => (
-            <div key={c.id} className="space-y-2">
+            <div key={c.id} {...hoverProps(c, hover)} className="space-y-2">
               <CardThumb card={c} onClick={() => pick(c)} />
               <div className="text-xs space-y-1">
                 <div className="flex items-center justify-between gap-1">
@@ -197,6 +199,8 @@ export function CommanderPicker() {
           )}
         </div>
       </section>
+
+      <CardHoverLayer hover={hover} />
     </div>
   );
 }

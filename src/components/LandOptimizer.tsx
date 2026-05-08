@@ -6,6 +6,7 @@ import { optimizeLands } from "@/lib/lands";
 import { useDeckStore } from "@/lib/store";
 import { totalCards, landCount } from "@/lib/analytics";
 import { frontImage } from "@/lib/scryfall";
+import { CardHoverLayer, hoverProps, useCardHover } from "./CardHoverPreview";
 
 interface Props {
   deck: Deck;
@@ -23,6 +24,7 @@ export function LandOptimizer({ deck, onInspect }: Props) {
   const [loading, setLoading] = useState<"budget" | "rich" | null>(null);
   const [plan, setPlan] = useState<PendingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const hover = useCardHover();
 
   const total = totalCards(deck);
   const lands = landCount(deck);
@@ -118,6 +120,7 @@ export function LandOptimizer({ deck, onInspect }: Props) {
             {plan.landsToAdd.map((l, i) => (
               <div
                 key={`${l.card.id}-${i}`}
+                {...hoverProps(l.card, hover)}
                 className="flex items-center gap-2 text-xs bg-bg-raised rounded px-2 py-1 hover:bg-bg-border transition cursor-pointer"
                 onClick={() => onInspect(l.card)}
               >
@@ -162,6 +165,8 @@ export function LandOptimizer({ deck, onInspect }: Props) {
           </div>
         </div>
       )}
+
+      <CardHoverLayer hover={hover} />
     </div>
   );
 }

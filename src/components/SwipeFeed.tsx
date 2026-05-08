@@ -10,6 +10,7 @@ import { suggestCut } from "@/lib/lands";
 import { comboPartnersInDeck } from "@/lib/brackets";
 import { deckComposition, deficitTierForCard } from "@/lib/composition";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
+import { CardHoverPreview } from "./CardHoverPreview";
 
 interface Props {
   deck: Deck;
@@ -605,60 +606,3 @@ function SwapModal({
   );
 }
 
-// Floating card-image preview anchored near the cursor. Positioned
-// fixed (so it can extend beyond the modal panel) and pointer-events:
-// none (so it doesn't intercept mouse events on the elements behind
-// it). Flips to the opposite side of the cursor if it would clip the
-// viewport, and clamps vertically to stay on-screen.
-function CardHoverPreview({
-  card,
-  cursorX,
-  cursorY,
-}: {
-  card: Card;
-  cursorX: number;
-  cursorY: number;
-}) {
-  const img = frontImage(card, "large") ?? frontImage(card, "normal");
-  if (!img) return null;
-
-  // Card image is rendered at 320px wide; "large" Scryfall faces are
-  // 488×680, so 320 wide → ~446 tall at 5:7. We use 320×448 for math.
-  const PREVIEW_W = 320;
-  const PREVIEW_H = 448;
-  const GAP = 18;
-  const VIEWPORT_PAD = 8;
-
-  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
-
-  // Prefer the right of the cursor; flip to the left if there's no room.
-  let left = cursorX + GAP;
-  if (left + PREVIEW_W + VIEWPORT_PAD > vw) {
-    left = cursorX - GAP - PREVIEW_W;
-  }
-  if (left < VIEWPORT_PAD) left = VIEWPORT_PAD;
-
-  // Vertical: center on cursor, clamped to viewport.
-  let top = cursorY - PREVIEW_H / 2;
-  if (top < VIEWPORT_PAD) top = VIEWPORT_PAD;
-  if (top + PREVIEW_H + VIEWPORT_PAD > vh) {
-    top = vh - PREVIEW_H - VIEWPORT_PAD;
-  }
-
-  return (
-    <div
-      className="fixed pointer-events-none z-[60]"
-      style={{ left, top, width: PREVIEW_W }}
-      aria-hidden
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={img}
-        alt=""
-        draggable={false}
-        className="w-full block rounded-xl shadow-2xl ring-1 ring-amber-700/40"
-      />
-    </div>
-  );
-}

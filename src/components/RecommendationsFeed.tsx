@@ -6,6 +6,8 @@ import { useDeckStore } from "@/lib/store";
 import type { Card, Deck } from "@/lib/types";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
 import { frontImage, safeHttpUrl } from "@/lib/scryfall";
+import { CardHoverLayer, hoverProps, useCardHover, type CardHover } from "./CardHoverPreview";
+import { dragSourceProps } from "@/lib/dnd";
 
 type SortMode = "rank" | "synergy" | "cmc" | "price";
 
@@ -27,6 +29,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
   const [sort, setSort] = useState<SortMode>("rank");
   const [maxCmc, setMaxCmc] = useState<number>(20);
   const [flash, setFlash] = useState<Set<string>>(new Set());
+  const hover = useCardHover();
 
   // Load recommendations whenever the commander changes
   useEffect(() => {
@@ -175,8 +178,8 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
       {error && <div className="panel p-4 text-red-400 text-sm mb-3">{error}</div>}
 
       <div className="flex-1 overflow-y-auto pr-2">
-        {section === "All" ? <GroupedFeed recs={filtered} onAdd={add} onInspect={onInspect} flash={flash} /> : (
-          <FeedGrid recs={filtered} onAdd={add} onInspect={onInspect} flash={flash} />
+        {section === "All" ? <GroupedFeed recs={filtered} onAdd={add} onInspect={onInspect} flash={flash} hover={hover} /> : (
+          <FeedGrid recs={filtered} onAdd={add} onInspect={onInspect} flash={flash} hover={hover} />
         )}
         {!loading && filtered.length === 0 && (
           <div className="text-center text-zinc-500 py-12 text-sm">
@@ -184,6 +187,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
           </div>
         )}
       </div>
+      <CardHoverLayer hover={hover} />
     </div>
   );
 }
@@ -193,11 +197,13 @@ function GroupedFeed({
   onAdd,
   onInspect,
   flash,
+  hover,
 }: {
   recs: Recommendation[];
   onAdd: (r: Recommendation) => void;
   onInspect: (c: Card) => void;
   flash: Set<string>;
+  hover: CardHover;
 }) {
   const groups = new Map<string, Recommendation[]>();
   for (const r of recs) {
@@ -213,7 +219,7 @@ function GroupedFeed({
               {sec} <span className="text-zinc-500 text-sm font-sans ml-1">{items.length}</span>
             </h3>
           </div>
-          <FeedGrid recs={items} onAdd={onAdd} onInspect={onInspect} flash={flash} />
+          <FeedGrid recs={items} onAdd={onAdd} onInspect={onInspect} flash={flash} hover={hover} />
         </section>
       ))}
     </div>
@@ -225,16 +231,18 @@ function FeedGrid({
   onAdd,
   onInspect,
   flash,
+  hover,
 }: {
   recs: Recommendation[];
   onAdd: (r: Recommendation) => void;
   onInspect: (c: Card) => void;
   flash: Set<string>;
+  hover: CardHover;
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {recs.map((r) => (
-        <FeedCard key={r.card.id} r={r} onAdd={onAdd} onInspect={onInspect} flashing={flash.has(r.card.id)} />
+        <FeedCard key={r.card.id} r={r} onAdd={onAdd} onInspect={onInspect} flashing={flash.has(r.card.id)} hover={hover} />
       ))}
     </div>
   );
@@ -245,21 +253,26 @@ function FeedCard({
   onAdd,
   onInspect,
   flashing,
+  hover,
 }: {
   r: Recommendation;
   onAdd: (r: Recommendation) => void;
   onInspect: (c: Card) => void;
   flashing: boolean;
+  hover: CardHover;
 }) {
   const img = frontImage(r.card, "normal");
   return (
     <article
-      className={`feed-card panel overflow-hidden flex flex-col ${flashing ? "added-flash" : ""}`}
+      {...dragSourceProps(r.card)}
+      {...hoverProps(r.card, hover)}
+      className={`feed-card panel overflow-hidden flex flex-col cursor-grab active:cursor-grabbing ${flashing ? "added-flash" : ""}`}
+      title="Drag onto your decklist or click + Add to deck"
     >
       <button onClick={() => onInspect(r.card)} className="block w-full">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt={r.card.name} className="w-full block" loading="lazy" />
+          <img src={img} alt={r.card.name} className="w-full block pointer-events-none" loading="lazy" draggable={false} />
         ) : (
           <div className="aspect-[5/7] bg-bg-raised flex items-center justify-center text-xs p-2 text-center">
             {r.card.name}

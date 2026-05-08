@@ -7,6 +7,8 @@ import { commanderColorIdentity, withinColorIdentity, colorIdentityString } from
 import type { Card, Deck } from "@/lib/types";
 import { CardThumb } from "./CardThumb";
 import { ManaCost, ColorIdentityPips } from "./ManaCost";
+import { CardHoverLayer, hoverProps, useCardHover } from "./CardHoverPreview";
+import { dragSourceProps } from "@/lib/dnd";
 
 interface Props {
   deck: Deck;
@@ -22,6 +24,7 @@ export function CardSearch({ deck, onInspect }: Props) {
   const [restrictColor, setRestrictColor] = useState(true);
   const [type, setType] = useState("");
   const debounce = useRef<number | null>(null);
+  const hover = useCardHover();
 
   const commander = deck.commanderId ? deck.entries[deck.commanderId]?.card : undefined;
   const partner = deck.partnerId ? deck.entries[deck.partnerId]?.card : undefined;
@@ -120,7 +123,13 @@ export function CardSearch({ deck, onInspect }: Props) {
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {results.map((c) => (
-            <div key={c.id} className="space-y-1">
+            <div
+              key={c.id}
+              {...dragSourceProps(c)}
+              {...hoverProps(c, hover)}
+              className="space-y-1 cursor-grab active:cursor-grabbing"
+              title="Drag onto your decklist"
+            >
               <CardThumb card={c} onClick={() => onInspect(c)} />
               <div className="text-[11px]">
                 <div className="flex items-center justify-between gap-1">
@@ -148,6 +157,8 @@ export function CardSearch({ deck, onInspect }: Props) {
           ))}
         </div>
       </div>
+
+      <CardHoverLayer hover={hover} />
     </div>
   );
 }

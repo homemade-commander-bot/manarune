@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useDeckStore } from "@/lib/store";
 import { categoryBreakdown, totalCards } from "@/lib/analytics";
 import { isUnlimitedQuantity } from "@/lib/commander-rules";
 import { findComboPiecesInDeck } from "@/lib/brackets";
 import type { Card, Deck, DeckCategory } from "@/lib/types";
 import { ManaCost } from "./ManaCost";
+import { CardHoverLayer, hoverProps, useCardHover } from "./CardHoverPreview";
+import { dropTargetProps } from "@/lib/dnd";
 
 const ORDER: DeckCategory[] = [
   "Commander",
@@ -21,14 +23,28 @@ const ORDER: DeckCategory[] = [
 ];
 
 export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card) => void }) {
-  const { removeCard, setQuantity } = useDeckStore();
+  const { addCard, removeCard, setQuantity } = useDeckStore();
   const cats = categoryBreakdown(deck);
   const total = totalCards(deck);
   const comboMap = useMemo(() => findComboPiecesInDeck(deck), [deck]);
   const hasCombos = comboMap.size > 0;
+  const hover = useCardHover();
+  const [dragHover, setDragHover] = useState(false);
+  const dropProps = dropTargetProps(
+    (card) => addCard(deck.id, card),
+    {
+      onDragEnter: () => setDragHover(true),
+      onDragLeave: () => setDragHover(false),
+    },
+  );
 
   return (
-    <div className="panel p-3 flex flex-col h-full">
+    <div
+      {...dropProps}
+      className={`panel p-3 flex flex-col h-full transition-colors ${
+        dragHover ? "ring-2 ring-emerald-500 bg-emerald-950/10" : ""
+      }`}
+    >
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-display text-lg text-amber-400">{deck.name}</h2>
         <span className={`text-sm ${total === 100 ? "text-emerald-400" : "text-zinc-400"}`}>
@@ -81,6 +97,7 @@ export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card)
                         <span className="w-6 text-center text-zinc-500 text-xs">1</span>
                       )}
                       <button
+                        {...hoverProps(e.card, hover)}
                         className={`flex-1 text-left truncate hover:text-amber-300 ${isCombo ? "text-fuchsia-200 font-medium" : ""}`}
                         onClick={() => onInspect(e.card)}
                         title={e.card.oracle_text || e.card.name}
@@ -117,10 +134,13 @@ export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card)
         })}
         {Object.values(cats).every((v) => v.length === 0) && (
           <div className="text-zinc-500 text-center py-10 text-sm">
-            No cards yet. Pick a commander, then add cards from the search panel.
+            No cards yet. Pick a commander, then add cards from the search panel
+            <span className="text-zinc-400"> or drag any card from the feed onto this list.</span>
           </div>
         )}
       </div>
+
+      <CardHoverLayer hover={hover} />
     </div>
   );
 }
