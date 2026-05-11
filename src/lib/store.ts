@@ -90,6 +90,11 @@ interface DeckStore {
   addCard: (deckId: string, card: Card, quantity?: number) => void;
   removeCard: (deckId: string, cardId: string) => void;
   setQuantity: (deckId: string, cardId: string, quantity: number) => void;
+  // Swap one printing of a card for another printing of the same card
+  // name. Preserves quantity, fires only if same name (printing-only
+  // change), and repoints commanderId/partnerId if they referenced the
+  // old printing.
+  replacePrinting: (deckId: string, oldCardId: string, newCard: Card) => void;
 
   setNotes: (deckId: string, notes: string) => void;
   setThemes: (deckId: string, themes: string[]) => void;
@@ -282,6 +287,38 @@ export const useDeckStore = create<DeckStore>()(
               },
             },
           };
+        }),
+
+      replacePrinting: (deckId, oldCardId, newCard) =>
+        set((s) => {
+          const deck = s.decks[deckId];
+          if (!deck) return s;
+          const old = deck.entries[oldCardId];
+          if (!old) return s;
+          // Sanity: only allow same-name swaps. Different cards should
+          // go through removeCard + addCard.
+          if (old.card.name !== newCard.name) return s;
+          // No-op if it's literally the same printing.
+          if (oldCardId === newCard.id) return s;
+          const entries = { ...deck.entries };
+          delete entries[oldCardId];
+          // If the new printing is somehow already in the deck (it
+          // shouldn't be — singleton check would have rejected it),
+          // sum the quantities; otherwise install the new entry fresh
+          // with the old entry's quantity preserved.
+          const existingNew = entries[newCard.id];
+          entries[newCard.id] = existingNew
+            ? { ...existingNew, quantity: existingNew.quantity + old.quantity }
+            : {
+                cardId: newCard.id,
+                card: newCard,
+                quantity: old.quantity,
+                category: old.category,
+              };
+          const update: Partial<Deck> = { entries, updatedAt: Date.now() };
+          if (deck.commanderId === oldCardId) update.commanderId = newCard.id;
+          if (deck.partnerId === oldCardId) update.partnerId = newCard.id;
+          return { decks: { ...s.decks, [deckId]: { ...deck, ...update } } };
         }),
 
       setNotes: (deckId, notes) =>

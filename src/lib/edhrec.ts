@@ -95,6 +95,13 @@ export const edhrec = {
     return safeFetch<EdhrecCommanderPage>(url(`top/${slug(colorCode)}`));
   },
 
+  // Top commanders across the format. Used by the landing page's
+  // "Trending Commanders" strip. EDHREC's /top/commanders page lists
+  // commanders by current popularity ranking.
+  async topCommanders(): Promise<EdhrecCommanderPage | null> {
+    return safeFetch<EdhrecCommanderPage>(url("top/commanders"));
+  },
+
   flattenRecs(page: EdhrecCommanderPage): { section: string; cards: EdhrecCardRef[] }[] {
     const lists = page.container?.json_dict?.cardlists ?? [];
     return lists.map((l) => ({ section: l.header, cards: l.cardviews ?? [] }));

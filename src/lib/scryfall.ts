@@ -150,6 +150,32 @@ export const scryfall = {
     }
     return cards.slice(0, max);
   },
+
+  // All printings of a card — same oracle name across every set it's
+  // been printed in. Scryfall already builds the right query and
+  // exposes it as `card.prints_search_uri`; we just paginate through
+  // it. Returns the printings sorted by release date (newest first
+  // is Scryfall's default for `unique:prints`).
+  async printingsOf(card: Card, max = 100): Promise<Card[]> {
+    // prints_search_uri is an absolute URL on api.scryfall.com.
+    // Strip the host prefix and feed the rest through request() so we
+    // pick up the same throttling/dedupe path the other calls use.
+    const uri = card.prints_search_uri;
+    if (!uri) return [card];
+    const u = new URL(uri);
+    // pathname includes the leading slash already
+    const initialPath = `${u.pathname}${u.search}`;
+    const cards: Card[] = [];
+    let path: string | undefined = initialPath;
+    while (path && cards.length < max) {
+      const list: ScryfallList<Card> = await request(path);
+      cards.push(...list.data);
+      if (!list.has_more || !list.next_page) break;
+      const nu = new URL(list.next_page);
+      path = `${nu.pathname}${nu.search}`;
+    }
+    return cards.slice(0, max);
+  },
 };
 
 // Helpers — no rules invented, all derived from card data.

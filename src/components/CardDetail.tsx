@@ -13,8 +13,15 @@ interface Props {
 }
 
 export function CardDetail({ card, deckId, onClose }: Props) {
-  const { addCard, removeCard, setCommander, decks, addToCollection, removeFromCollection } =
-    useDeckStore();
+  const {
+    addCard,
+    removeCard,
+    setCommander,
+    decks,
+    addToCollection,
+    removeFromCollection,
+    replacePrinting,
+  } = useDeckStore();
   const collectionEntry = useDeckStore((s) => (card ? s.collection?.[card.id] : undefined));
   const collectionGroups = useDeckStore((s) => s.collectionGroups);
   const fastAddGroupId = useDeckStore((s) => s.profile.fastAddGroupId ?? DEFAULT_GROUP_ID);
@@ -22,6 +29,9 @@ export function CardDetail({ card, deckId, onClose }: Props) {
   const [loadingRulings, setLoadingRulings] = useState(false);
   const [showBack, setShowBack] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
+  const [printings, setPrintings] = useState<Card[] | null>(null);
+  const [loadingPrintings, setLoadingPrintings] = useState(false);
+  const [printingsOpen, setPrintingsOpen] = useState(false);
 
   const inDeck = !!(card && deckId && decks[deckId]?.entries[card.id]);
   const isCommander = !!(card && deckId && decks[deckId]?.commanderId === card.id);
@@ -33,6 +43,8 @@ export function CardDetail({ card, deckId, onClose }: Props) {
   useEffect(() => {
     setRulings(null);
     setShowBack(false);
+    setPrintings(null);
+    setPrintingsOpen(false);
     if (!card) return;
     setLoadingRulings(true);
     scryfall
@@ -257,9 +269,159 @@ export function CardDetail({ card, deckId, onClose }: Props) {
                 ))}
               </ul>
             </div>
+
+            {/* Printings — different arts / sets / collector numbers */}
+            <PrintingsBlock
+              card={card}
+              currentCardId={card.id}
+              deckId={deckId}
+              open={printingsOpen}
+              loading={loadingPrintings}
+              printings={printings}
+              onToggle={async () => {
+                const next = !printingsOpen;
+                setPrintingsOpen(next);
+                if (next && !printings && !loadingPrintings) {
+                  setLoadingPrintings(true);
+                  try {
+                    const all = await scryfall.printingsOf(card);
+                    setPrintings(all);
+                  } catch {
+                    setPrintings([]);
+                  } finally {
+                    setLoadingPrintings(false);
+                  }
+                }
+              }}
+              onUseArt={(p) => {
+                if (deckId) replacePrinting(deckId, card.id, p);
+              }}
+              onAddToCollection={(p) => addToCollection(p, 1, false, fastAddGroupId)}
+              fastAddGroupName={fastAddGroup?.name}
+            />
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PrintingsBlock({
+  card,
+  currentCardId,
+  deckId,
+  open,
+  loading,
+  printings,
+  onToggle,
+  onUseArt,
+  onAddToCollection,
+  fastAddGroupName,
+}: {
+  card: Card;
+  currentCardId: string;
+  deckId: string | undefined;
+  open: boolean;
+  loading: boolean;
+  printings: Card[] | null;
+  onToggle: () => void;
+  onUseArt: (printing: Card) => void;
+  onAddToCollection: (printing: Card) => void;
+  fastAddGroupName?: string;
+}) {
+  // We don't know the total count until we fetch, but Scryfall typically
+  // gives 50–100 prints for popular cards; show "Printings ▾" until expanded.
+  const count = printings?.length;
+  return (
+    <div className="mt-4">
+      <button
+        onClick={onToggle}
+        className="flex items-center gap-1.5 text-sm font-semibold text-amber-400 hover:text-amber-300"
+        aria-expanded={open}
+      >
+        <span>{open ? "▾" : "▸"}</span>
+        <span>Printings{count !== undefined ? ` (${count})` : ""}</span>
+        <span className="text-[10px] text-zinc-500 font-normal ml-1">
+          alternate art, set, and price
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 border border-bg-border rounded-md p-2 max-h-[40vh] overflow-y-auto">
+          {loading && <div className="text-xs text-zinc-500 p-2">Loading printings…</div>}
+          {!loading && printings && printings.length === 0 && (
+            <div className="text-xs text-zinc-500 p-2">
+              Could not load other printings. Try opening the Scryfall page in a new tab.
+            </div>
+          )}
+          {!loading && printings && printings.length > 0 && (
+            <ul className="space-y-1.5">
+              {printings.map((p) => {
+                const img = frontImage(p, "small") ?? frontImage(p, "art_crop");
+                const isCurrent = p.id === currentCardId;
+                const price = p.prices?.usd;
+                return (
+                  <li
+                    key={p.id}
+                    className={`flex items-center gap-2 rounded px-2 py-1.5 ${
+                      isCurrent
+                        ? "bg-amber-900/20 border border-amber-700/40"
+                        : "bg-bg-raised hover:bg-bg-border border border-transparent"
+                    }`}
+                  >
+                    {img ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={img}
+                        alt={`${p.set_name} printing of ${p.name}`}
+                        className="w-10 h-14 rounded object-cover flex-shrink-0"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-10 h-14 rounded bg-bg-border flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-zinc-100 truncate">
+                        {p.set_name}{" "}
+                        <span className="text-zinc-500 font-mono text-[10px]">
+                          {p.set.toUpperCase()} · #{p.collector_number}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-zinc-400 flex items-center gap-2 flex-wrap">
+                        {p.artist && <span>{p.artist}</span>}
+                        {p.released_at && <span>· {p.released_at}</span>}
+                        {price && <span className="text-emerald-400">· ${price}</span>}
+                        {isCurrent && <span className="text-amber-300">· current</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {deckId && !isCurrent && (
+                        <button
+                          onClick={() => onUseArt(p)}
+                          className="text-[11px] px-2 py-1 rounded border border-amber-700/40 bg-amber-900/20 text-amber-200 hover:bg-amber-900/40"
+                          title="Replace this card in the deck with this printing (quantity preserved)"
+                        >
+                          Use this art
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onAddToCollection(p)}
+                        className="text-[11px] px-2 py-1 rounded border border-bg-border bg-bg-raised text-zinc-300 hover:text-amber-300"
+                        title={`Add this specific printing to ${fastAddGroupName ?? "your collection"}`}
+                      >
+                        + Coll
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+      {/* Keep currentCardId referenced for completeness even though
+          it's currently only used to mark the active row. */}
+      <span className="hidden" aria-hidden>{currentCardId}</span>
+      <span className="hidden" aria-hidden>{card.id}</span>
     </div>
   );
 }

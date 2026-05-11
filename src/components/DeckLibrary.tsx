@@ -10,6 +10,8 @@ import { frontImage } from "@/lib/scryfall";
 import { ColorIdentityPips } from "./ManaCost";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ImportDeckModal } from "./ImportDeckModal";
+import { CommanderOfTheDay } from "./CommanderOfTheDay";
+import { TrendingCommanders } from "./TrendingCommanders";
 
 export function DeckLibrary() {
   const router = useRouter();
@@ -62,6 +64,13 @@ export function DeckLibrary() {
           </div>
         </div>
       </section>
+
+      {/* Discovery rail: Commander of the Day + Trending. Both surfaces
+          gracefully hide themselves if EDHREC/Scryfall are unreachable,
+          so the rest of the library stays usable even when the
+          discovery features are offline. */}
+      <CommanderOfTheDay />
+      <TrendingCommanders />
 
       <section>
         <div className="flex items-baseline justify-between mb-4">

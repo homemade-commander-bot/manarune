@@ -77,6 +77,16 @@ export interface Card {
   scryfall_uri: string;
   rulings_uri: string;
   reserved?: boolean;
+  // Scryfall search URL that returns every printing of this card name.
+  // Used by the CardDetail printings selector to enumerate art/set choices.
+  prints_search_uri?: string;
+  artist?: string;
+  promo?: boolean;
+  variation?: boolean;
+  full_art?: boolean;
+  border_color?: string;
+  frame?: string;
+  frame_effects?: string[];
 }
 
 export interface ScryfallList<T> {
