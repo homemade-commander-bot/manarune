@@ -9,12 +9,14 @@ import { validateDeck, colorIdentityString, commanderColorIdentity } from "@/lib
 import { frontImage } from "@/lib/scryfall";
 import { ColorIdentityPips } from "./ManaCost";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ImportDeckModal } from "./ImportDeckModal";
 
 export function DeckLibrary() {
   const router = useRouter();
   const { profile, decks, createDeck, deleteDeck, duplicateDeck, setActiveDeck } = useDeckStore();
   const list = Object.values(decks).sort((a, b) => b.updatedAt - a.updatedAt);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   function startNew() {
     const id = createDeck("Untitled Deck");
@@ -45,6 +47,14 @@ export function DeckLibrary() {
             <button onClick={startNew} className="btn btn-primary flex-1 sm:flex-initial justify-center">
               <span className="sm:hidden">+ New Deck</span>
               <span className="hidden sm:inline">+ New Commander Deck</span>
+            </button>
+            <button
+              onClick={() => setShowImport(true)}
+              className="btn btn-ghost flex-1 sm:flex-initial justify-center"
+              title="Paste a decklist or a Moxfield URL"
+            >
+              <span className="sm:hidden">↓ Import</span>
+              <span className="hidden sm:inline">↓ Import deck</span>
             </button>
             <Link href="/profile" className="btn btn-ghost flex-1 sm:flex-initial justify-center">
               Edit profile
@@ -176,6 +186,8 @@ export function DeckLibrary() {
         }}
         onCancel={() => setPendingDelete(null)}
       />
+
+      <ImportDeckModal open={showImport} onClose={() => setShowImport(false)} />
     </div>
   );
 }

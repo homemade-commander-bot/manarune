@@ -13,6 +13,7 @@ import { BracketEstimator } from "@/components/BracketEstimator";
 import { LandOptimizer } from "@/components/LandOptimizer";
 import { DeckActions } from "@/components/DeckActions";
 import { CommanderBanner } from "@/components/CommanderBanner";
+import { ImportDeckModal } from "@/components/ImportDeckModal";
 import { useDeckStore } from "@/lib/store";
 import type { Card } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export default function BuildPage() {
   const [inspect, setInspect] = useState<Card | null>(null);
   const [tab, setTab] = useState<Tab>("feed");
   const [mobileSection, setMobileSection] = useState<MobileSection>("build");
+  const [showImport, setShowImport] = useState(false);
 
   if (!deck) {
     return (
@@ -44,15 +46,16 @@ export default function BuildPage() {
               <Link href="/commanders" className="btn btn-primary justify-center">
                 Choose a Commander
               </Link>
+              <button onClick={() => setShowImport(true)} className="btn btn-ghost justify-center">
+                ↓ Import a decklist
+              </button>
               <Link href="/" className="btn btn-ghost justify-center">
                 My Decks
               </Link>
             </div>
-            <p className="text-[10px] text-zinc-500 mt-4">
-              An import-decklist flow (paste a list or Moxfield URL) is on the way.
-            </p>
           </div>
         </main>
+        <ImportDeckModal open={showImport} onClose={() => setShowImport(false)} />
       </>
     );
   }

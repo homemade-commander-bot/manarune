@@ -30,6 +30,7 @@ export function Header() {
           <Link href="/" className={nav("/")}>My Decks</Link>
           <Link href="/build" className={nav("/build")}>Builder</Link>
           <Link href="/collection" className={nav("/collection")}>Collection</Link>
+          <Link href="/play" className={nav("/play")}>Life</Link>
           <Link href="/rules" className={nav("/rules")}>Rules</Link>
         </nav>
         {/* Mobile-only compact nav (visible below md). Each route gets
@@ -38,6 +39,7 @@ export function Header() {
           <Link href="/" className={`${nav("/")} text-xs px-2`} title="My Decks">📚</Link>
           <Link href="/build" className={`${nav("/build")} text-xs px-2`} title="Builder">🛠</Link>
           <Link href="/collection" className={`${nav("/collection")} text-xs px-2`} title="Collection">📦</Link>
+          <Link href="/play" className={`${nav("/play")} text-xs px-2`} title="Life Tracker">❤️</Link>
           <Link href="/rules" className={`${nav("/rules")} text-xs px-2`} title="Rules">📜</Link>
         </nav>
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
