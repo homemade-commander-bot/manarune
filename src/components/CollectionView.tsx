@@ -669,6 +669,7 @@ function GroupManagerModal({
                     <>
                       <input
                         value={renameValue}
+                        maxLength={40}
                         autoFocus
                         onChange={(e) => setRenameValue(e.target.value)}
                         onKeyDown={(e) => {
@@ -751,6 +752,7 @@ function GroupManagerModal({
           <div className="flex items-center gap-2 pt-2 border-t border-bg-border">
             <input
               value={newName}
+              maxLength={40}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleCreate();

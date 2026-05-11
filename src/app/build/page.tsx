@@ -33,14 +33,24 @@ export default function BuildPage() {
     return (
       <>
         <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="panel p-8 text-center max-w-md">
-            <h1 className="font-display text-2xl text-amber-400 mb-2">No deck selected</h1>
-            <p className="text-zinc-400 text-sm mb-4">Pick a deck from your library or create a new one.</p>
-            <div className="flex gap-2 justify-center">
-              <Link href="/" className="btn btn-ghost">My Decks</Link>
-              <Link href="/commanders" className="btn btn-primary">Choose Commander</Link>
+        <main className="flex-1 flex items-center justify-center px-4">
+          <div className="panel p-6 sm:p-8 text-center max-w-md w-full">
+            <div className="text-4xl mb-2" aria-hidden>🜂</div>
+            <h1 className="font-display text-2xl text-amber-400 mb-1">No deck selected</h1>
+            <p className="text-zinc-400 text-sm mb-5">
+              Start a fresh build by picking a commander, or jump into an existing list.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Link href="/commanders" className="btn btn-primary justify-center">
+                Choose a Commander
+              </Link>
+              <Link href="/" className="btn btn-ghost justify-center">
+                My Decks
+              </Link>
             </div>
+            <p className="text-[10px] text-zinc-500 mt-4">
+              An import-decklist flow (paste a list or Moxfield URL) is on the way.
+            </p>
           </div>
         </main>
       </>

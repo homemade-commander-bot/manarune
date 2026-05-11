@@ -7,3 +7,9 @@ dist
 .DS_Store
 *.tsbuildinfo
 .vercel
+
+# Local AI-assist working artifacts (changelog, launch posts, session
+# context, skill definitions). These contain useful project history
+# but aren't part of the runtime app; we keep them on disk locally
+# but don't publish them to the public repo.
+.claude/

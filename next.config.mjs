@@ -27,6 +27,22 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "DENY" },
+          // Disable browser features the app doesn't use, so a future
+          // XSS can't quietly turn on the camera, mic, or geolocation
+          // through us. Vercel/Supabase don't need any of these.
+          {
+            key: "Permissions-Policy",
+            value: [
+              "camera=()",
+              "microphone=()",
+              "geolocation=()",
+              "payment=()",
+              "usb=()",
+              "magnetometer=()",
+              "gyroscope=()",
+              "accelerometer=()",
+            ].join(", "),
+          },
         ],
       },
     ];

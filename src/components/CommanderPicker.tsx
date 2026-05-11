@@ -52,9 +52,32 @@ export function CommanderPicker() {
 
   function buildQuery(text: string, cs: string[]): string {
     const parts: string[] = [];
-    if (text.trim()) parts.push(text.trim());
+    const trimmed = text.trim();
+    if (trimmed) {
+      // Scryfall treats bare words as a name match. That breaks
+      // theme-style searches like "tokens", "lifegain", or "voltron"
+      // — the user expects the picker to surface commanders that
+      // *do* those things, not commanders whose name contains that
+      // word. If the user's input has no Scryfall operators (`:` /
+      // `>=` / `<=` / explicit quoting), expand it to also match
+      // oracle text and types so themes, keywords, and creature
+      // types all hit.
+      const hasOperator = /[:<>="]/.test(trimmed);
+      if (hasOperator) {
+        parts.push(trimmed);
+      } else {
+        // Quote individual words so multi-word inputs ("group hug")
+        // still match as phrases inside oracle/name/type fields.
+        const tokens = trimmed.split(/\s+/);
+        const expansions = tokens.map((t) => {
+          const safe = t.replace(/"/g, "");
+          return `(name:"${safe}" or o:"${safe}" or t:"${safe}" or keyword:"${safe}")`;
+        });
+        parts.push(expansions.join(" "));
+      }
+    }
     if (cs.length > 0) parts.push(`id<=${cs.join("").toLowerCase()}`);
-    else if (text.trim() === "") parts.push("is:commander"); // popular default
+    else if (trimmed === "") parts.push("is:commander"); // popular default
     return parts.join(" ");
   }
 

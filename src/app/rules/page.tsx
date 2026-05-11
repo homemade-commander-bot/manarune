@@ -9,9 +9,11 @@ export default function RulesPage() {
         <p className="text-zinc-400 text-sm">
           The app validates every deck against the rules below. Banlist updates flow automatically from
           Scryfall&rsquo;s legality data, so newly banned or unbanned cards are reflected without an app update.
-          For the full Commander policy, see the{" "}
-          <a className="text-amber-400 underline" href="https://mtgcommander.net/index.php/rules/" target="_blank" rel="noopener noreferrer">
-            official Commander Rules Committee page
+          As of September 2024, Wizards of the Coast manages the Commander format directly with input from
+          the Commander Format Panel; the independent Commander Rules Committee handed off stewardship at
+          that time. For the canonical rules, see the{" "}
+          <a className="text-amber-400 underline" href="https://magic.wizards.com/en/news/announcements/on-the-future-of-commander" target="_blank" rel="noopener noreferrer">
+            WotC announcement
           </a>{" "}
           and{" "}
           <a className="text-amber-400 underline" href="https://magic.wizards.com/en/rules" target="_blank" rel="noopener noreferrer">
@@ -72,12 +74,15 @@ export default function RulesPage() {
           </ul>
         </Section>
 
-        <Section title="Banlist (Commander RC, current)">
+        <Section title="Banlist (current, via Scryfall)">
           <p className="text-zinc-300 text-sm">
-            The app uses Scryfall&rsquo;s authoritative <code className="bg-bg-raised px-1 rounded">legalities.commander</code>{" "}
-            field, which mirrors RC announcements. The current ban list is published at{" "}
-            <a className="text-amber-400 underline" href="https://mtgcommander.net/index.php/banned-list/" target="_blank" rel="noopener noreferrer">
-              mtgcommander.net/banned-list
+            The app checks Commander legality using Scryfall&rsquo;s{" "}
+            <code className="bg-bg-raised px-1 rounded">legalities.commander</code> field, which tracks the
+            authoritative banlist. Format management is now handled by Wizards of the Coast with input from
+            the Commander Format Panel (transitioned from the independent Commander Rules Committee in
+            September 2024). For the current banned and restricted list, verify against{" "}
+            <a className="text-amber-400 underline" href="https://magic.wizards.com/en/banned-and-restricted-list" target="_blank" rel="noopener noreferrer">
+              Wizards&rsquo; official banned &amp; restricted list
             </a>
             .
           </p>
@@ -86,7 +91,8 @@ export default function RulesPage() {
         <Section title="Sources">
           <ul className="list-disc pl-5 space-y-1 text-sm">
             <li><a className="underline text-amber-400" href="https://magic.wizards.com/en/rules" target="_blank" rel="noopener noreferrer">Magic: The Gathering Comprehensive Rules</a> — §903 covers Commander.</li>
-            <li><a className="underline text-amber-400" href="https://mtgcommander.net/index.php/rules/" target="_blank" rel="noopener noreferrer">Commander Rules Committee policy</a></li>
+            <li><a className="underline text-amber-400" href="https://magic.wizards.com/en/news/announcements/on-the-future-of-commander" target="_blank" rel="noopener noreferrer">On the Future of Commander</a> — WotC&rsquo;s Sept 2024 announcement taking over format management.</li>
+            <li><a className="underline text-amber-400" href="https://magic.wizards.com/en/banned-and-restricted-list" target="_blank" rel="noopener noreferrer">Official banned &amp; restricted list</a></li>
             <li><a className="underline text-amber-400" href="https://blogs.magicjudges.org/rules/" target="_blank" rel="noopener noreferrer">MTG Judges blog</a></li>
             <li><a className="underline text-amber-400" href="https://scryfall.com/docs/api" target="_blank" rel="noopener noreferrer">Scryfall API</a> (card data, legality, rulings)</li>
           </ul>

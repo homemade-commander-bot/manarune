@@ -42,16 +42,45 @@ export default function ProfilePage() {
           Profile
         </h1>
 
+        <section className="panel p-4 border border-amber-700/40 bg-amber-900/10">
+          <div className="flex items-start gap-3 text-sm">
+            <span aria-hidden className="text-amber-300 text-lg leading-none mt-0.5">ⓘ</span>
+            <div className="flex-1 text-zinc-200">
+              <div className="font-semibold text-amber-200">Local-only beta</div>
+              <p className="text-xs text-zinc-300 mt-0.5 leading-snug">
+                Your decks, collection, and profile are saved in this browser only. Clearing browser data or
+                switching devices will lose them. Export your decks regularly (Builder → Export .txt /
+                .md), or enable cloud sync below to back everything up.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="panel p-5 space-y-4">
           <h2 className="font-display text-lg text-amber-300">Identity</h2>
           <label className="block">
-            <div className="text-xs text-zinc-400 mb-1">Display name</div>
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="text-xs text-zinc-400">Display name</span>
+              <span className="text-[10px] text-zinc-500">
+                {name.trim() !== profile.name ? "Unsaved" : "Saved"}
+              </span>
+            </div>
             <input
               value={name}
+              maxLength={40}
               onChange={(e) => setName(e.target.value)}
-              onBlur={() => name.trim() && setProfile({ name: name.trim() })}
+              onBlur={() => {
+                const next = name.trim();
+                if (next && next !== profile.name) setProfile({ name: next });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
               className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2"
             />
+            <div className="text-[10px] text-zinc-500 mt-1">
+              Saves automatically when you leave the field (Tab / Enter / click away).
+            </div>
           </label>
           <div>
             <div className="text-xs text-zinc-400 mb-2">Avatar</div>

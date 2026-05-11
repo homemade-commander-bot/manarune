@@ -23,22 +23,32 @@ export function DeckLibrary() {
   }
 
   return (
-    <div className="max-w-[1500px] mx-auto px-4 py-8 space-y-8">
-      <section className="panel p-6 grain">
-        <div className="flex items-center gap-4">
-          <div className="text-5xl">{profile.avatar}</div>
-          <div className="flex-1">
-            <div className="text-xs uppercase tracking-widest text-zinc-400">Welcome back</div>
-            <h1 className="font-display text-3xl bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">
-              {profile.name}
-            </h1>
-            <div className="text-sm text-zinc-400 mt-1">
-              {list.length} {list.length === 1 ? "deck" : "decks"} in your library
+    <div className="max-w-[1500px] mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
+      <section className="panel p-4 sm:p-6 grain">
+        {/* Mobile: stack avatar above name above buttons; desktop:
+            avatar/name | buttons in a row. The previous layout
+            clipped "+ New Commander Deck" on small screens. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+            <div className="text-4xl sm:text-5xl flex-shrink-0">{profile.avatar}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] sm:text-xs uppercase tracking-widest text-zinc-400">Welcome back</div>
+              <h1 className="font-display text-2xl sm:text-3xl bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent truncate">
+                {profile.name}
+              </h1>
+              <div className="text-xs sm:text-sm text-zinc-400 mt-1">
+                {list.length} {list.length === 1 ? "deck" : "decks"} in your library
+              </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={startNew} className="btn btn-primary">+ New Commander Deck</button>
-            <Link href="/profile" className="btn btn-ghost">Edit profile</Link>
+          <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
+            <button onClick={startNew} className="btn btn-primary flex-1 sm:flex-initial justify-center">
+              <span className="sm:hidden">+ New Deck</span>
+              <span className="hidden sm:inline">+ New Commander Deck</span>
+            </button>
+            <Link href="/profile" className="btn btn-ghost flex-1 sm:flex-initial justify-center">
+              Edit profile
+            </Link>
           </div>
         </div>
       </section>

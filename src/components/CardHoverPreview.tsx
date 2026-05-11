@@ -80,12 +80,27 @@ export function hoverProps(card: Card, hover: CardHover) {
 // component that owns the hover state. Returns null when no card is
 // hovered, so it costs nothing when idle. Portals to document.body
 // to escape any ancestor stacking context.
+//
+// Suppressed on touch-only devices (phones, most tablets): hover
+// events on touch trigger from the last tap rather than a real
+// "pointer overing" interaction, so the preview floats over the next
+// thing the user wants to tap and the UX becomes disruptive. The
+// CSS-level `(hover: hover) and (pointer: fine)` query is the right
+// gate; we check it imperatively in a useEffect so SSR is unaffected.
 export function CardHoverLayer({ hover }: { hover: CardHover }) {
   const [mounted, setMounted] = useState(false);
+  const [canHover, setCanHover] = useState(false);
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+      setCanHover(mq.matches);
+      const onChange = (e: MediaQueryListEvent) => setCanHover(e.matches);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    }
   }, []);
-  if (!mounted || !hover.card || typeof document === "undefined") return null;
+  if (!mounted || !canHover || !hover.card || typeof document === "undefined") return null;
   return createPortal(
     <CardHoverPreview card={hover.card} cursorX={hover.x} cursorY={hover.y} />,
     document.body,

@@ -31,8 +31,10 @@ export function DeckActions({ deck }: { deck: Deck }) {
     <div className="panel p-3 space-y-2">
       <input
         value={deck.name}
+        maxLength={80}
         onChange={(e) => renameDeck(deck.id, e.target.value)}
         className="w-full bg-bg-raised border border-bg-border rounded px-2 py-1 font-display text-amber-400"
+        aria-label="Deck name"
       />
       <div className="flex flex-wrap gap-2">
         <button className="btn btn-ghost" onClick={() => setOpen("txt")}>Export .txt</button>
