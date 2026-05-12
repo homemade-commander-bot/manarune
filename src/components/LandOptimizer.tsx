@@ -99,20 +99,20 @@ export function LandOptimizer({ deck, onInspect }: Props) {
 
       {plan && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-xs font-semibold text-amber-300">
               {plan.mode === "rich" ? "Premium" : "Optimized"} mana base
             </span>
             <span className="text-[10px] text-zinc-500">
-              {plan.landsToRemove.length > 0
-                ? `Replacing ${plan.landsToRemove.length} lands`
-                : `Adding ${plan.landsToAdd.length} lands`}
+              {plan.landsToAdd.length === 0
+                ? "Already at land target — no changes needed"
+                : `+ ${plan.landsToAdd.length} new lands · your existing manabase kept`}
             </span>
           </div>
 
           {plan.landsToRemove.length > 0 && (
-            <div className="text-[10px] text-red-400 bg-red-900/20 rounded p-2">
-              Removing: {plan.landsToRemove.map((id) => deck.entries[id]?.card.name).filter(Boolean).join(", ")}
+            <div className="text-[10px] text-amber-200 bg-amber-900/20 border border-amber-700/30 rounded p-2">
+              Replacing: {plan.landsToRemove.map((id) => deck.entries[id]?.card.name).filter(Boolean).join(", ")}
             </div>
           )}
 

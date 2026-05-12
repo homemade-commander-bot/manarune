@@ -1,17 +1,27 @@
 "use client";
 
-// Commander life tracker. Built for table use during an actual game:
-// 2–6 players, configurable starting life, per-player commander-damage
-// grid (CR 903.14a — 21 from one commander loses the game), poison
-// counters (CR 704.5c — 10+ poison loses the game), an undo per player,
-// and a reset.
+// Commander life tracker. Built for a phone or tablet sitting in the
+// middle of a 4-person table — large tap targets, big life numerals,
+// commander art as the player-card background, and 4-player rotation
+// so the players opposite the device see their cards right-side-up.
 //
-// State is kept in-component (not persisted) because most games last
-// 30–90 minutes and the user expects "new game = fresh slate". The
-// player count and starting life are remembered in sessionStorage so
-// a mid-game page reload doesn't wipe the player layout.
+// Design lifted from the visual language of the major Magic
+// companion apps:
+//   • Tap the LEFT half of your card to lose 1 life.
+//   • Tap the RIGHT half to gain 1 life.
+//   • Corner pills for ±5, poison, commander damage, and undo.
+//   • Commander art behind the life total, darkened for legibility.
+//
+// State is in-component (not in the persisted deck store) because
+// most games last 30–90 minutes and "new game" should be a fresh
+// slate. The setup (player count / starting life / names / chosen
+// commanders) does live in sessionStorage so a mid-game page reload
+// doesn't reset the table.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { scryfall, frontImage } from "@/lib/scryfall";
+import { canBeCommander } from "@/lib/commander-rules";
+import type { Card } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 type StartingLife = 20 | 30 | 40;
@@ -21,32 +31,37 @@ interface PlayerState {
   name: string;
   life: number;
   poison: number;
-  // commanderDamage[opponentIndex] = damage from that player's commander
-  commanderDamage: number[];
+  commanderDamage: number[]; // indexed by opponent player id
   history: LifeEvent[];
+  commander?: Card; // optional — chosen via quick-picker
 }
 
 interface LifeEvent {
   kind: "life" | "poison" | "cmdrDmg";
   delta: number;
-  // For cmdrDmg: index of the opponent dealing the damage
   fromOpponent?: number;
 }
 
-const STORAGE_KEY = "commander-forge.life-tracker.v1";
-const COLORS = [
-  { bg: "from-emerald-700 to-emerald-900", accent: "border-emerald-500" },
-  { bg: "from-sky-700 to-sky-900", accent: "border-sky-500" },
-  { bg: "from-fuchsia-700 to-fuchsia-900", accent: "border-fuchsia-500" },
-  { bg: "from-amber-700 to-amber-900", accent: "border-amber-500" },
-  { bg: "from-rose-700 to-rose-900", accent: "border-rose-500" },
-  { bg: "from-violet-700 to-violet-900", accent: "border-violet-500" },
+const STORAGE_KEY = "commander-forge.life-tracker.v2";
+
+// Fallback color per seat — used only when a commander hasn't been
+// chosen. Once a commander is set, the art replaces the gradient.
+const SEAT_COLORS = [
+  "from-emerald-800 to-emerald-950",
+  "from-sky-800 to-sky-950",
+  "from-fuchsia-800 to-fuchsia-950",
+  "from-amber-800 to-amber-950",
+  "from-rose-800 to-rose-950",
+  "from-violet-800 to-violet-950",
 ];
 
 interface PersistedConfig {
   playerCount: number;
   startingLife: StartingLife;
   playerNames: string[];
+  // Just the card id per player; we re-fetch on rehydrate. Avoids
+  // bloating sessionStorage with full Card objects.
+  commanderIds: (string | null)[];
 }
 
 function loadConfig(): PersistedConfig | null {
@@ -60,7 +75,14 @@ function loadConfig(): PersistedConfig | null {
       typeof parsed?.startingLife === "number" &&
       Array.isArray(parsed?.playerNames)
     ) {
-      return parsed as PersistedConfig;
+      return {
+        playerCount: parsed.playerCount,
+        startingLife: parsed.startingLife,
+        playerNames: parsed.playerNames,
+        commanderIds: Array.isArray(parsed.commanderIds)
+          ? parsed.commanderIds
+          : Array.from({ length: parsed.playerCount }, () => null),
+      };
     }
   } catch {}
   return null;
@@ -80,7 +102,10 @@ function makePlayer(id: number, life: number, name: string): PlayerState {
 function ensureCmdrSlots(players: PlayerState[]): PlayerState[] {
   return players.map((p) => ({
     ...p,
-    commanderDamage: Array.from({ length: players.length }, (_, i) => p.commanderDamage[i] ?? 0),
+    commanderDamage: Array.from(
+      { length: players.length },
+      (_, i) => p.commanderDamage[i] ?? 0,
+    ),
   }));
 }
 
@@ -88,7 +113,8 @@ export function LifeTracker() {
   const [playerCount, setPlayerCount] = useState<number>(4);
   const [startingLife, setStartingLife] = useState<StartingLife>(40);
   const [players, setPlayers] = useState<PlayerState[]>([]);
-  const [showCmdrFor, setShowCmdrFor] = useState<number | null>(null);
+  const [pickerFor, setPickerFor] = useState<number | null>(null);
+  const [cmdrDmgFor, setCmdrDmgFor] = useState<number | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
   // Restore config on mount.
@@ -97,13 +123,24 @@ export function LifeTracker() {
     if (cfg) {
       setPlayerCount(cfg.playerCount);
       setStartingLife(cfg.startingLife as StartingLife);
-      setPlayers(
-        ensureCmdrSlots(
-          Array.from({ length: cfg.playerCount }, (_, i) =>
-            makePlayer(i, cfg.startingLife, cfg.playerNames[i] ?? `Player ${i + 1}`),
-          ),
+      const fresh = ensureCmdrSlots(
+        Array.from({ length: cfg.playerCount }, (_, i) =>
+          makePlayer(i, cfg.startingLife, cfg.playerNames[i] ?? `Player ${i + 1}`),
         ),
       );
+      setPlayers(fresh);
+      // Refetch commanders by id (best-effort).
+      cfg.commanderIds.forEach((id, idx) => {
+        if (!id) return;
+        scryfall
+          .cardById(id)
+          .then((c) => {
+            setPlayers((cur) =>
+              cur.map((p, i) => (i === idx ? { ...p, commander: c } : p)),
+            );
+          })
+          .catch(() => { /* silent */ });
+      });
     } else {
       setPlayers(
         ensureCmdrSlots(
@@ -113,84 +150,80 @@ export function LifeTracker() {
     }
   }, []);
 
-  // Persist config when it changes.
+  // Persist setup whenever it changes.
   useEffect(() => {
     if (players.length === 0) return;
     saveConfig({
       playerCount,
       startingLife,
       playerNames: players.map((p) => p.name),
+      commanderIds: players.map((p) => p.commander?.id ?? null),
     });
   }, [playerCount, startingLife, players]);
 
-  function adjustLife(playerIdx: number, delta: number) {
+  function adjustLife(idx: number, delta: number) {
+    setPlayers((cur) =>
+      cur.map((p, i) =>
+        i !== idx
+          ? p
+          : {
+              ...p,
+              life: p.life + delta,
+              history: [...p.history, { kind: "life", delta }],
+            },
+      ),
+    );
+  }
+
+  function adjustPoison(idx: number, delta: number) {
     setPlayers((cur) =>
       cur.map((p, i) => {
-        if (i !== playerIdx) return p;
+        if (i !== idx) return p;
+        const next = Math.max(0, p.poison + delta);
+        const actual = next - p.poison;
         return {
           ...p,
-          life: p.life + delta,
-          history: [...p.history, { kind: "life", delta }],
+          poison: next,
+          history:
+            actual !== 0
+              ? [...p.history, { kind: "poison", delta: actual }]
+              : p.history,
         };
       }),
     );
   }
 
-  function adjustPoison(playerIdx: number, delta: number) {
+  function adjustCmdrDmg(idx: number, oppIdx: number, delta: number) {
     setPlayers((cur) =>
       cur.map((p, i) => {
-        if (i !== playerIdx) return p;
-        const nextPoison = Math.max(0, p.poison + delta);
-        const actualDelta = nextPoison - p.poison;
-        return {
-          ...p,
-          poison: nextPoison,
-          history: actualDelta !== 0
-            ? [...p.history, { kind: "poison", delta: actualDelta }]
-            : p.history,
-        };
-      }),
-    );
-  }
-
-  function adjustCmdrDmg(playerIdx: number, opponentIdx: number, delta: number) {
-    setPlayers((cur) =>
-      cur.map((p, i) => {
-        if (i !== playerIdx) return p;
-        const cur = p.commanderDamage[opponentIdx] ?? 0;
+        if (i !== idx) return p;
+        const cur = p.commanderDamage[oppIdx] ?? 0;
         const next = Math.max(0, cur + delta);
-        const actualDelta = next - cur;
+        const actual = next - cur;
         const dmg = [...p.commanderDamage];
-        dmg[opponentIdx] = next;
+        dmg[oppIdx] = next;
         return {
           ...p,
           commanderDamage: dmg,
-          // CR 903.14a — commander damage is also damage, so apply to life too.
-          life: p.life - actualDelta,
-          history: actualDelta !== 0
-            ? [
-                ...p.history,
-                { kind: "cmdrDmg", delta: actualDelta, fromOpponent: opponentIdx },
-              ]
-            : p.history,
+          life: p.life - actual,
+          history:
+            actual !== 0
+              ? [...p.history, { kind: "cmdrDmg", delta: actual, fromOpponent: oppIdx }]
+              : p.history,
         };
       }),
     );
   }
 
-  function undo(playerIdx: number) {
+  function undo(idx: number) {
     setPlayers((cur) =>
       cur.map((p, i) => {
-        if (i !== playerIdx || p.history.length === 0) return p;
+        if (i !== idx || p.history.length === 0) return p;
         const last = p.history[p.history.length - 1];
         const history = p.history.slice(0, -1);
-        if (last.kind === "life") {
-          return { ...p, life: p.life - last.delta, history };
-        }
-        if (last.kind === "poison") {
+        if (last.kind === "life") return { ...p, life: p.life - last.delta, history };
+        if (last.kind === "poison")
           return { ...p, poison: Math.max(0, p.poison - last.delta), history };
-        }
-        // cmdrDmg — roll back both the per-opponent grid and life
         if (last.kind === "cmdrDmg" && last.fromOpponent !== undefined) {
           const dmg = [...p.commanderDamage];
           dmg[last.fromOpponent] = Math.max(0, (dmg[last.fromOpponent] ?? 0) - last.delta);
@@ -201,10 +234,17 @@ export function LifeTracker() {
     );
   }
 
-  function rename(playerIdx: number, name: string) {
+  function rename(idx: number, name: string) {
     setPlayers((cur) =>
-      cur.map((p, i) => (i === playerIdx ? { ...p, name: name.slice(0, 24) } : p)),
+      cur.map((p, i) => (i === idx ? { ...p, name: name.slice(0, 24) } : p)),
     );
+  }
+
+  function setCommanderForPlayer(idx: number, card: Card | null) {
+    setPlayers((cur) =>
+      cur.map((p, i) => (i === idx ? { ...p, commander: card ?? undefined } : p)),
+    );
+    setPickerFor(null);
   }
 
   function applyPlayerCount(n: number) {
@@ -244,94 +284,105 @@ export function LifeTracker() {
     setConfirmReset(false);
   }
 
-  // Grid columns scale with player count to keep cards readable.
-  const gridCols =
-    playerCount <= 2
-      ? "grid-cols-1 sm:grid-cols-2"
-      : playerCount === 3
-        ? "grid-cols-1 sm:grid-cols-3"
-        : playerCount === 4
-          ? "grid-cols-2 sm:grid-cols-2 lg:grid-cols-4"
-          : "grid-cols-2 sm:grid-cols-3";
+  // Layout strategy. The grid columns scale with player count. For
+  // 4-player mode we rotate the TOP row 180° so the players sitting
+  // opposite the device read their cards right-side-up.
+  const layout = useMemo(() => {
+    if (playerCount === 2)
+      return { cols: "grid-cols-1", rotateTopRow: true, topCount: 1 };
+    if (playerCount === 3)
+      return { cols: "grid-cols-1 sm:grid-cols-3", rotateTopRow: false, topCount: 0 };
+    if (playerCount === 4)
+      return { cols: "grid-cols-2", rotateTopRow: true, topCount: 2 };
+    if (playerCount === 5)
+      return { cols: "grid-cols-2 sm:grid-cols-3", rotateTopRow: false, topCount: 0 };
+    return { cols: "grid-cols-2 sm:grid-cols-3", rotateTopRow: false, topCount: 0 };
+  }, [playerCount]);
 
   return (
-    <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
-      {/* Setup bar */}
-      <section className="panel p-3 sm:p-4 flex flex-wrap items-center gap-3">
-        <div>
-          <h1 className="font-display text-xl sm:text-2xl text-amber-300">Life Tracker</h1>
-          <p className="text-[10px] sm:text-xs text-zinc-400">
-            Built for at-the-table use. Commander damage tracked per opponent (CR 903.14a) — 21+ from a single commander = loss.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 ml-auto">
-          <label className="flex items-center gap-1 text-xs">
-            <span className="text-zinc-400">Players</span>
-            <select
-              value={playerCount}
-              onChange={(e) => applyPlayerCount(Number(e.target.value))}
-              className="bg-bg-raised border border-bg-border rounded px-2 py-1"
-            >
-              {[2, 3, 4, 5, 6].map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-1 text-xs">
-            <span className="text-zinc-400">Starting life</span>
-            <select
-              value={startingLife}
-              onChange={(e) => applyStartingLife(Number(e.target.value) as StartingLife)}
-              className="bg-bg-raised border border-bg-border rounded px-2 py-1"
-            >
-              <option value={40}>40 (Commander)</option>
-              <option value={30}>30 (Brawl / Oathbreaker)</option>
-              <option value={20}>20 (Standard)</option>
-            </select>
-          </label>
-          <button
-            onClick={() => setConfirmReset(true)}
-            className="btn btn-ghost text-xs"
-            title="Reset all players to starting life with empty history"
+    <div className="max-w-[1600px] mx-auto px-2 sm:px-4 py-3 sm:py-4 space-y-3">
+      {/* Compact setup bar */}
+      <section className="panel p-2.5 sm:p-3 flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+        <h1 className="font-display text-base sm:text-lg text-amber-300">Life</h1>
+        <label className="flex items-center gap-1">
+          <span className="text-zinc-400">Players</span>
+          <select
+            value={playerCount}
+            onChange={(e) => applyPlayerCount(Number(e.target.value))}
+            className="bg-bg-raised border border-bg-border rounded px-2 py-1"
           >
-            ↺ New game
-          </button>
-        </div>
+            {[2, 3, 4, 5, 6].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-1">
+          <span className="text-zinc-400">Start at</span>
+          <select
+            value={startingLife}
+            onChange={(e) => applyStartingLife(Number(e.target.value) as StartingLife)}
+            className="bg-bg-raised border border-bg-border rounded px-2 py-1"
+          >
+            <option value={40}>40</option>
+            <option value={30}>30</option>
+            <option value={20}>20</option>
+          </select>
+        </label>
+        <button
+          onClick={() => setConfirmReset(true)}
+          className="btn btn-ghost text-xs ml-auto"
+          title="Reset all players to starting life"
+        >
+          ↺ New game
+        </button>
       </section>
 
-      {/* Player grid */}
-      <div className={`grid ${gridCols} gap-3`}>
-        {players.map((p, i) => (
-          <PlayerCard
-            key={p.id}
-            player={p}
-            index={i}
-            startingLife={startingLife}
-            onLifeChange={(d) => adjustLife(i, d)}
-            onPoisonChange={(d) => adjustPoison(i, d)}
-            onRename={(name) => rename(i, name)}
-            onUndo={() => undo(i)}
-            onOpenCmdrDmg={() => setShowCmdrFor(i)}
-            color={COLORS[i % COLORS.length]}
-          />
-        ))}
+      {/* Player grid. 4-player mode pairs rotated/un-rotated rows. */}
+      <div className={`grid ${layout.cols} gap-2 sm:gap-3`}>
+        {players.map((p, i) => {
+          const rotated = layout.rotateTopRow && i < layout.topCount;
+          return (
+            <div key={p.id} className={rotated ? "rotate-180" : ""}>
+              <PlayerCard
+                player={p}
+                index={i}
+                startingLife={startingLife}
+                color={SEAT_COLORS[i % SEAT_COLORS.length]}
+                onLife={(d) => adjustLife(i, d)}
+                onPoison={(d) => adjustPoison(i, d)}
+                onRename={(name) => rename(i, name)}
+                onUndo={() => undo(i)}
+                onOpenCmdrDmg={() => setCmdrDmgFor(i)}
+                onOpenPicker={() => setPickerFor(i)}
+              />
+            </div>
+          );
+        })}
       </div>
 
-      {/* Commander damage modal */}
-      {showCmdrFor !== null && (
+      {pickerFor !== null && (
+        <CommanderQuickPicker
+          currentName={players[pickerFor]?.commander?.name}
+          onPick={(card) => setCommanderForPlayer(pickerFor, card)}
+          onClear={() => setCommanderForPlayer(pickerFor, null)}
+          onClose={() => setPickerFor(null)}
+        />
+      )}
+
+      {cmdrDmgFor !== null && (
         <CommanderDamageModal
-          target={players[showCmdrFor]}
-          targetIndex={showCmdrFor}
+          target={players[cmdrDmgFor]}
+          targetIndex={cmdrDmgFor}
           opponents={players}
-          onAdjust={(opponentIdx, delta) => adjustCmdrDmg(showCmdrFor, opponentIdx, delta)}
-          onClose={() => setShowCmdrFor(null)}
+          onAdjust={(opponentIdx, delta) => adjustCmdrDmg(cmdrDmgFor, opponentIdx, delta)}
+          onClose={() => setCmdrDmgFor(null)}
         />
       )}
 
       <ConfirmDialog
         open={confirmReset}
         title="Start a new game?"
-        message="Every player will reset to starting life, with poison and commander damage cleared."
+        message="Every player resets to starting life. Commanders and player names are kept."
         confirmLabel="Reset"
         cancelLabel="Keep playing"
         onConfirm={resetGame}
@@ -345,22 +396,24 @@ function PlayerCard({
   player,
   index,
   startingLife,
-  onLifeChange,
-  onPoisonChange,
+  color,
+  onLife,
+  onPoison,
   onRename,
   onUndo,
   onOpenCmdrDmg,
-  color,
+  onOpenPicker,
 }: {
   player: PlayerState;
   index: number;
   startingLife: number;
-  onLifeChange: (delta: number) => void;
-  onPoisonChange: (delta: number) => void;
+  color: string;
+  onLife: (delta: number) => void;
+  onPoison: (delta: number) => void;
   onRename: (name: string) => void;
   onUndo: () => void;
   onOpenCmdrDmg: () => void;
-  color: { bg: string; accent: string };
+  onOpenPicker: () => void;
 }) {
   const dead = player.life <= 0;
   const poisoned = player.poison >= 10;
@@ -368,106 +421,263 @@ function PlayerCard({
   const cmdrKilled = maxCmdrDmg >= 21;
   const eliminated = dead || poisoned || cmdrKilled;
 
+  const art = player.commander ? frontImage(player.commander, "art_crop") : undefined;
+  const lifeColor =
+    player.life > startingLife / 2
+      ? "text-white"
+      : player.life > Math.floor(startingLife / 4)
+        ? "text-yellow-200"
+        : "text-red-300";
+
   return (
     <article
-      className={`relative panel overflow-hidden border-2 ${
-        eliminated ? "border-red-700 opacity-70" : color.accent
-      } bg-gradient-to-br ${color.bg}`}
+      className={`relative rounded-xl overflow-hidden card-shadow border-2 ${
+        eliminated ? "border-red-700/70 opacity-70" : "border-white/10"
+      }`}
+      // Aspect tuned so 4-up on a 6.7" phone fills the screen without scroll.
+      style={{ aspectRatio: "5 / 4", minHeight: 200 }}
     >
+      {/* Background: commander art or seat-color fallback */}
+      {art ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={art}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover"
+            draggable={false}
+          />
+          {/* Darkening overlay for text legibility */}
+          <div className="absolute inset-0 bg-black/55" />
+        </>
+      ) : (
+        <div className={`absolute inset-0 bg-gradient-to-br ${color}`} />
+      )}
+
       {eliminated && (
-        <div className="absolute top-2 right-2 z-10 text-[10px] uppercase tracking-wider font-bold bg-red-700 text-white px-2 py-0.5 rounded">
-          {dead ? "0 LIFE" : cmdrKilled ? "CMDR DMG" : "POISON"}
+        <div className="absolute top-1.5 right-1.5 z-30 text-[10px] uppercase tracking-wider font-bold bg-red-700 text-white px-2 py-0.5 rounded">
+          {dead ? "0 life" : cmdrKilled ? "cmdr dmg" : "poison"}
         </div>
       )}
-      <div className="p-3 space-y-2">
+
+      {/* Tap zones — left half = −1, right half = +1. Avoid the top
+          bar and the bottom button row so those controls remain
+          tappable. z-10 sits ABOVE the life numeral (which uses
+          pointer-events-none) but BELOW the top/bottom UI. */}
+      <button
+        onClick={() => onLife(-1)}
+        aria-label="−1 life"
+        className="absolute left-0 top-10 bottom-12 sm:top-12 sm:bottom-14 z-10 w-1/2 group"
+      >
+        <span className="absolute inset-y-0 left-2 flex items-center text-3xl sm:text-4xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
+          −
+        </span>
+      </button>
+      <button
+        onClick={() => onLife(1)}
+        aria-label="+1 life"
+        className="absolute right-0 top-10 bottom-12 sm:top-12 sm:bottom-14 z-10 w-1/2 group"
+      >
+        <span className="absolute inset-y-0 right-2 flex items-center text-3xl sm:text-4xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
+          +
+        </span>
+      </button>
+
+      {/* Top bar — player name + commander pill */}
+      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between gap-1 p-1.5 sm:p-2">
         <input
           value={player.name}
           maxLength={24}
           onChange={(e) => onRename(e.target.value)}
-          className="w-full bg-black/30 border border-white/10 rounded px-2 py-1 text-sm text-white placeholder:text-white/50"
+          className="bg-transparent text-white text-xs sm:text-sm font-medium px-1 py-0.5 rounded border border-transparent hover:border-white/20 focus:border-white/40 focus:bg-black/40 outline-none min-w-0 flex-1"
           aria-label={`Player ${index + 1} name`}
         />
+        <button
+          onClick={onOpenPicker}
+          className="text-[10px] sm:text-[11px] text-white/80 hover:text-amber-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded border border-white/10 truncate max-w-[120px] sm:max-w-[160px]"
+          title="Set or change this player's commander"
+        >
+          {player.commander ? `⚔ ${player.commander.name}` : "+ Commander"}
+        </button>
+      </div>
 
-        {/* Life — big tap targets. Hold for 10× already-fast, single tap is 1. */}
-        <div className="flex items-stretch gap-2">
-          <button
-            onClick={() => onLifeChange(-5)}
-            className="flex-1 bg-black/30 hover:bg-black/50 text-white text-lg font-mono py-2 rounded transition active:scale-95"
-            aria-label="−5 life"
-          >
-            −5
-          </button>
-          <button
-            onClick={() => onLifeChange(-1)}
-            className="flex-1 bg-black/40 hover:bg-black/60 text-white text-2xl font-mono py-2 rounded transition active:scale-95"
-            aria-label="−1 life"
-          >
-            −1
-          </button>
-          <div className="flex-[2] flex flex-col items-center justify-center min-w-0">
-            <div
-              className={`font-mono text-5xl sm:text-6xl leading-none ${
-                player.life > startingLife / 2
-                  ? "text-white"
-                  : player.life > 10
-                    ? "text-yellow-200"
-                    : "text-red-200"
-              }`}
-            >
-              {player.life}
-            </div>
-            <div className="text-[9px] uppercase tracking-wider text-white/60 mt-1">life</div>
-          </div>
-          <button
-            onClick={() => onLifeChange(1)}
-            className="flex-1 bg-black/40 hover:bg-black/60 text-white text-2xl font-mono py-2 rounded transition active:scale-95"
-            aria-label="+1 life"
-          >
-            +1
-          </button>
-          <button
-            onClick={() => onLifeChange(5)}
-            className="flex-1 bg-black/30 hover:bg-black/50 text-white text-lg font-mono py-2 rounded transition active:scale-95"
-            aria-label="+5 life"
-          >
-            +5
-          </button>
+      {/* Centered life — non-interactive so the tap zones get the clicks */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <div className={`font-mono font-bold text-[6rem] sm:text-[7rem] leading-none drop-shadow-lg ${lifeColor}`}>
+          {player.life}
         </div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-white/60 mt-1">life</div>
+      </div>
 
-        {/* Secondary counters */}
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <button
-            onClick={() => onPoisonChange(1)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              onPoisonChange(-1);
-            }}
-            className="bg-black/30 hover:bg-black/50 rounded py-1.5 px-2 text-white flex flex-col items-center transition"
-            title="Click to add poison, right-click to remove"
-          >
-            <span className="font-mono text-base">{player.poison}</span>
-            <span className="text-[9px] uppercase tracking-wider text-white/60">☠ poison</span>
-          </button>
-          <button
-            onClick={onOpenCmdrDmg}
-            className="bg-black/30 hover:bg-black/50 rounded py-1.5 px-2 text-white flex flex-col items-center transition"
-            title="Track commander damage from each opponent"
-          >
-            <span className="font-mono text-base">{maxCmdrDmg}</span>
-            <span className="text-[9px] uppercase tracking-wider text-white/60">⚔ cmdr dmg</span>
-          </button>
-          <button
-            onClick={onUndo}
-            disabled={player.history.length === 0}
-            className="bg-black/30 hover:bg-black/50 disabled:opacity-30 disabled:cursor-not-allowed rounded py-1.5 px-2 text-white flex flex-col items-center transition"
-            title="Undo last change"
-          >
-            <span className="font-mono text-base">↺</span>
-            <span className="text-[9px] uppercase tracking-wider text-white/60">undo</span>
-          </button>
-        </div>
+      {/* Bottom bar — secondary counters and undo */}
+      <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between gap-1 p-1.5 sm:p-2">
+        <CornerButton onClick={() => onLife(-5)} aria-label="−5 life">−5</CornerButton>
+        <CornerButton
+          onClick={() => onPoison(1)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onPoison(-1);
+          }}
+          aria-label="Poison counter"
+          highlighted={player.poison > 0}
+        >
+          <span className="text-base">☠</span>
+          <span className="font-mono ml-0.5">{player.poison}</span>
+        </CornerButton>
+        <CornerButton
+          onClick={onOpenCmdrDmg}
+          aria-label="Commander damage"
+          highlighted={maxCmdrDmg > 0}
+        >
+          <span className="text-base">⚔</span>
+          <span className="font-mono ml-0.5">{maxCmdrDmg}</span>
+        </CornerButton>
+        <CornerButton
+          onClick={onUndo}
+          disabled={player.history.length === 0}
+          aria-label="Undo"
+        >
+          ↺
+        </CornerButton>
+        <CornerButton onClick={() => onLife(5)} aria-label="+5 life">+5</CornerButton>
       </div>
     </article>
+  );
+}
+
+function CornerButton({
+  children,
+  highlighted,
+  disabled,
+  ...rest
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { highlighted?: boolean }) {
+  return (
+    <button
+      {...rest}
+      disabled={disabled}
+      className={`flex items-center justify-center px-2 py-1 rounded text-xs font-medium text-white transition select-none ${
+        highlighted
+          ? "bg-amber-700/70 hover:bg-amber-600/80"
+          : "bg-black/40 hover:bg-black/60"
+      } ${disabled ? "opacity-30 cursor-not-allowed" : "active:scale-95"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Quick commander picker — a small modal with Scryfall autocomplete.
+// Single-purpose (used only by the life tracker), kept inline so we
+// don't pull the full /commanders page weight into a phone view.
+function CommanderQuickPicker({
+  currentName,
+  onPick,
+  onClear,
+  onClose,
+}: {
+  currentName?: string;
+  onPick: (card: Card) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const debounce = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!q.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    if (debounce.current) window.clearTimeout(debounce.current);
+    debounce.current = window.setTimeout(async () => {
+      try {
+        const names = await scryfall.autocomplete(q.trim());
+        setSuggestions(names.slice(0, 10));
+      } catch {
+        setSuggestions([]);
+      }
+    }, 180);
+    return () => {
+      if (debounce.current) window.clearTimeout(debounce.current);
+    };
+  }, [q]);
+
+  async function pickName(name: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const card = await scryfall.cardByName(name);
+      if (!canBeCommander(card)) {
+        setError(`"${card.name}" isn't a legal commander.`);
+        setLoading(false);
+        return;
+      }
+      onPick(card);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lookup failed");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4 pt-20 sm:pt-4 animate-[fadeIn_120ms_ease-out]"
+      onClick={onClose}
+    >
+      <div
+        className="panel w-full max-w-md p-4 sm:p-5 space-y-3 animate-[popIn_140ms_ease-out]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="font-display text-lg text-amber-300">Set commander</h3>
+            <p className="text-[10px] text-zinc-400 mt-0.5">
+              The art appears behind this player&apos;s life total. Only used here — doesn&apos;t touch your decks.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white text-2xl leading-none">×</button>
+        </div>
+
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search commanders…"
+          className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500/60"
+        />
+
+        {error && <div className="text-xs text-red-400">{error}</div>}
+
+        {suggestions.length > 0 && (
+          <ul className="max-h-60 overflow-y-auto border border-bg-border rounded divide-y divide-bg-border">
+            {suggestions.map((name) => (
+              <li key={name}>
+                <button
+                  onClick={() => pickName(name)}
+                  disabled={loading}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-bg-raised disabled:opacity-50 truncate"
+                >
+                  {name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {currentName && (
+          <button
+            onClick={onClear}
+            className="text-xs text-zinc-400 hover:text-red-400 underline w-full text-center"
+          >
+            Clear commander ({currentName})
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -495,9 +705,11 @@ function CommanderDamageModal({
       >
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-display text-lg text-amber-300">Commander damage to {target.name}</h3>
+            <h3 className="font-display text-lg text-amber-300">
+              Commander damage to {target.name}
+            </h3>
             <p className="text-[10px] text-zinc-400 mt-0.5">
-              21 from any single commander loses the game (CR 903.14a). Adjusting here also drops the target&rsquo;s life total.
+              21 from a single commander = loss (CR 903.14a). Adjusting here also drops the target&apos;s life.
             </p>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white text-2xl leading-none">×</button>
@@ -505,24 +717,23 @@ function CommanderDamageModal({
 
         <ul className="space-y-1.5">
           {opponents.map((opp, i) => {
-            if (i === targetIndex) return null; // can't deal cmdr dmg to yourself
+            if (i === targetIndex) return null;
             const dmg = target.commanderDamage[i] ?? 0;
             const lethal = dmg >= 21;
             return (
               <li
                 key={opp.id}
                 className={`flex items-center gap-2 rounded border px-2 py-1.5 ${
-                  lethal
-                    ? "border-red-600 bg-red-900/30"
-                    : "border-bg-border bg-bg-raised"
+                  lethal ? "border-red-600 bg-red-900/30" : "border-bg-border bg-bg-raised"
                 }`}
               >
-                <span className="flex-1 text-sm text-zinc-200 truncate">{opp.name}&rsquo;s commander</span>
+                <span className="flex-1 text-sm text-zinc-200 truncate">
+                  {opp.commander ? opp.commander.name : `${opp.name}'s commander`}
+                </span>
                 <button
                   onClick={() => onAdjust(i, -1)}
                   disabled={dmg === 0}
                   className="w-8 h-8 rounded bg-black/40 hover:bg-black/60 disabled:opacity-30 text-white font-mono"
-                  aria-label="Decrease commander damage"
                 >
                   −
                 </button>
@@ -532,7 +743,6 @@ function CommanderDamageModal({
                 <button
                   onClick={() => onAdjust(i, 1)}
                   className="w-8 h-8 rounded bg-amber-700 hover:bg-amber-600 text-white font-mono"
-                  aria-label="Increase commander damage"
                 >
                   +
                 </button>

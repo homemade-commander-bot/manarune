@@ -150,10 +150,12 @@ export async function optimizeLands(
 
   const existingLandIds = new Set<string>();
   const existingLandNames = new Set<string>();
+  let existingLandCount = 0;
   for (const e of entries) {
     if (/Land/.test(e.card.type_line)) {
       existingLandIds.add(e.card.id);
       existingLandNames.add(e.card.name);
+      existingLandCount += e.quantity;
     }
   }
 
@@ -161,8 +163,15 @@ export async function optimizeLands(
     .filter((e) => !/Land/.test(e.card.type_line))
     .reduce((s, e) => s + e.quantity, 0);
 
+  // Additive mode: we ADD lands up to either the user's empty slots
+  // (100 − non-land cards) or the TARGET_LANDS heuristic, whichever
+  // is smaller. We never destroy a user's existing manabase — that
+  // was the previous behavior and was surprising. If the deck is
+  // already at or above the target land count, the plan will be
+  // empty (no-op).
   const landSlots = Math.max(0, 100 - nonLandCount);
   const targetLands = Math.min(landSlots, TARGET_LANDS);
+  const landsToAddCount = Math.max(0, targetLands - existingLandCount);
 
   const landsToAdd: { card: Card; reason: string }[] = [];
   const seen = new Set<string>();
@@ -221,7 +230,7 @@ export async function optimizeLands(
         const idQ = `id<=${colorIdentityString(allowed).toLowerCase()}`;
         try {
           const list = await scryfall.searchCards(`${q} ${idQ}`, { order: "edhrec" });
-          for (const card of list.data.slice(0, mode === "rich" ? 4 : 2)) {
+          for (const card of list.data.slice(0, mode === "rich" ? 6 : 2)) {
             if (seen.has(card.name) || existingLandNames.has(card.name)) continue;
             if (pushIfLand(landsToAdd, card, `Dual land (${pair})`)) {
               seen.add(card.name);
@@ -232,37 +241,46 @@ export async function optimizeLands(
     }
   }
 
-  // Triomes for 3+ color decks
-  if (colorArr.length >= 3 && mode === "budget") {
+  // Triomes / tri-lands for 3+ color decks — now in BOTH modes. The
+  // earlier code only ran this branch in budget mode, which left rich
+  // 3+ color decks short on tri-color fixing unless the user happened
+  // to already own the named triomes from PREMIUM_LAND_NAMES.
+  if (colorArr.length >= 3) {
     try {
       const idQ = `id<=${colorIdentityString(allowed).toLowerCase()}`;
       const list = await scryfall.searchCards(
         `t:land o:"cycling" (t:"Plains" or t:"Island" or t:"Swamp" or t:"Mountain" or t:"Forest") ${idQ} legal:commander`,
         { order: "edhrec" },
       );
-      for (const card of list.data.slice(0, 3)) {
+      const take = mode === "rich" ? 6 : 3;
+      for (const card of list.data.slice(0, take)) {
         if (seen.has(card.name) || existingLandNames.has(card.name)) continue;
-        if (pushIfLand(landsToAdd, card, "Triome/tri-land")) seen.add(card.name);
+        if (pushIfLand(landsToAdd, card, "Triome / tri-land")) seen.add(card.name);
       }
     } catch {}
   }
 
-  // Fill remaining slots with basics proportional to pip count
-  const slotsUsed = landsToAdd.length + existingLandIds.size;
-  const basicsNeeded = Math.max(0, targetLands - slotsUsed);
-  if (basicsNeeded > 0) {
-    const basicAlloc: { color: Color; count: number }[] = [];
-    let remaining = basicsNeeded;
-    const sortedColors = colorArr.sort((a, b) => (proportions[b] ?? 0) - (proportions[a] ?? 0));
-    for (let i = 0; i < sortedColors.length; i++) {
-      const c = sortedColors[i];
-      const count = i === sortedColors.length - 1
-        ? remaining
-        : Math.round(proportions[c] * basicsNeeded);
-      basicAlloc.push({ color: c, count: Math.min(count, remaining) });
-      remaining -= Math.min(count, remaining);
-    }
-    for (const { color, count } of basicAlloc) {
+  // ---- Cap the non-basic pool to leave room for basics ----
+  // Non-basics ideally take ~half of the manabase. Trim if we
+  // accidentally over-stocked from utility/duals/triomes.
+  const nonBasicCap = Math.max(0, Math.floor(landsToAddCount * 0.65));
+  if (landsToAdd.length > nonBasicCap) {
+    landsToAdd.length = nonBasicCap;
+    // Rebuild `seen` so we don't reject basics now.
+    seen.clear();
+    for (const e of landsToAdd) seen.add(e.card.name);
+  }
+
+  // ---- Fill remaining slots with basics, proportional to pip count.
+  // Allocation rounding: distribute by floor + apply remainder to the
+  // color with the largest fractional remainder, until we've placed
+  // exactly `basicsNeeded` basics. Prevents the all-the-leftover-goes-
+  // to-the-last-color edge cases the previous code had.
+  const slotsToFill = landsToAddCount - landsToAdd.length;
+  const basicsNeeded = Math.max(0, slotsToFill);
+  if (basicsNeeded > 0 && colorArr.length > 0) {
+    const alloc = allocateBasics(proportions, colorArr, basicsNeeded);
+    for (const { color, count } of alloc) {
       if (count <= 0) continue;
       try {
         const basic = await scryfall.cardByName(BASIC_NAMES[color]);
@@ -274,14 +292,45 @@ export async function optimizeLands(
     }
   }
 
-  // Determine which existing lands to remove (all of them — we're replacing the manabase)
-  const landsToRemove = Array.from(existingLandIds);
+  // We never auto-remove existing lands. The optimizer is now strictly
+  // additive — it suggests new lands up to the target count and lets
+  // the user keep what they had. If the user wants to swap, they can
+  // remove the old land manually (or click "I'm Rich" on a deck that's
+  // already at land count = 0).
+  const landsToRemove: string[] = [];
 
   return {
     landsToAdd,
     landsToRemove,
-    totalLands: targetLands,
+    totalLands: existingLandCount + landsToAdd.length,
   };
+}
+
+// Largest-remainder method for distributing N basics across pip
+// proportions. Avoids the "last color eats all leftover" bug.
+function allocateBasics(
+  proportions: Record<Color, number>,
+  colors: readonly Color[],
+  total: number,
+): { color: Color; count: number }[] {
+  if (total <= 0) return [];
+  // Initial floor allocation
+  const raw = colors.map((c) => ({
+    color: c,
+    exact: (proportions[c] ?? 0) * total,
+  }));
+  const floors = raw.map((r) => ({ color: r.color, count: Math.floor(r.exact), frac: r.exact - Math.floor(r.exact) }));
+  let assigned = floors.reduce((s, r) => s + r.count, 0);
+  // Distribute remainder by largest fractional part
+  const sortedByFrac = [...floors].sort((a, b) => b.frac - a.frac);
+  let idx = 0;
+  while (assigned < total && idx < sortedByFrac.length * 4) {
+    const target = sortedByFrac[idx % sortedByFrac.length];
+    target.count += 1;
+    assigned += 1;
+    idx += 1;
+  }
+  return floors.map((f) => ({ color: f.color, count: f.count }));
 }
 
 // Auto-staples that go into every new commander deck.
