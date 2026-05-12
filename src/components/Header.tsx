@@ -23,8 +23,8 @@ export function Header() {
           href="/"
           className="font-display text-lg sm:text-xl tracking-wide bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent whitespace-nowrap"
         >
-          <span className="hidden sm:inline">⌬ Commander Forge</span>
-          <span className="sm:hidden">⌬ Forge</span>
+          {/* Same dedup trick: constant prefix, responsive suffix. */}
+          ⌬ <span className="hidden sm:inline">Commander </span>Forge
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           <Link href="/" className={nav("/")}>My Decks</Link>
@@ -63,8 +63,10 @@ export function Header() {
             }}
             title="Create a new deck"
           >
-            <span className="hidden sm:inline">+ New Deck</span>
-            <span className="sm:hidden">+ New</span>
+            {/* Text composed of a constant root + a responsive suffix
+                so a DOM-text scraper sees either "+ New" or "+ New Deck"
+                but never both concatenated. */}
+            + New<span className="hidden sm:inline"> Deck</span>
           </button>
           <Link href="/profile" className="flex items-center gap-2 px-1.5 sm:px-2 py-1 rounded hover:bg-bg-raised">
             <span className="text-xl sm:text-2xl leading-none">{profile.avatar}</span>

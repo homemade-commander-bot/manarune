@@ -19,6 +19,7 @@
 // doesn't reset the table.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { scryfall, frontImage } from "@/lib/scryfall";
 import { canBeCommander } from "@/lib/commander-rules";
 import type { Card } from "@/lib/types";
@@ -284,32 +285,47 @@ export function LifeTracker() {
     setConfirmReset(false);
   }
 
-  // Layout strategy. The grid columns scale with player count. For
-  // 4-player mode we rotate the TOP row 180° so the players sitting
-  // opposite the device read their cards right-side-up.
+  // Layout strategy. ForceLandscape guarantees we're in a landscape
+  // coordinate system, so the grid can lay out cards with explicit
+  // rows + columns that fill the viewport. Player counts:
+  //   2 → 1×2 stacked (one card facing each side of the table)
+  //   3 → 3×1 in a row
+  //   4 → 2×2; top row rotated 180° for opposite players
+  //   5/6 → 3×2 grid
+  // Rotation is opt-in per layout so the players opposite the device
+  // read their cards right-side-up.
   const layout = useMemo(() => {
     if (playerCount === 2)
-      return { cols: "grid-cols-1", rotateTopRow: true, topCount: 1 };
+      return { cls: "grid-cols-1 grid-rows-2", rotateIndices: [0] };
     if (playerCount === 3)
-      return { cols: "grid-cols-1 sm:grid-cols-3", rotateTopRow: false, topCount: 0 };
+      return { cls: "grid-cols-3 grid-rows-1", rotateIndices: [] as number[] };
     if (playerCount === 4)
-      return { cols: "grid-cols-2", rotateTopRow: true, topCount: 2 };
+      return { cls: "grid-cols-2 grid-rows-2", rotateIndices: [0, 1] };
     if (playerCount === 5)
-      return { cols: "grid-cols-2 sm:grid-cols-3", rotateTopRow: false, topCount: 0 };
-    return { cols: "grid-cols-2 sm:grid-cols-3", rotateTopRow: false, topCount: 0 };
+      return { cls: "grid-cols-3 grid-rows-2", rotateIndices: [0, 1] };
+    return { cls: "grid-cols-3 grid-rows-2", rotateIndices: [0, 1, 2] };
   }, [playerCount]);
 
   return (
-    <div className="max-w-[1600px] mx-auto px-2 sm:px-4 py-3 sm:py-4 space-y-3">
-      {/* Compact setup bar */}
-      <section className="panel p-2.5 sm:p-3 flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+    <div className="h-full w-full flex flex-col px-1.5 sm:px-2 pt-1.5 sm:pt-2 pb-1.5 sm:pb-2 gap-1.5 sm:gap-2">
+      {/* Compact setup bar — one line, ~36px tall */}
+      <section className="panel px-2 py-1.5 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm flex-shrink-0">
+        <Link
+          href="/"
+          className="text-zinc-400 hover:text-amber-300 text-base leading-none"
+          title="Back to deck library"
+          aria-label="Back to deck library"
+        >
+          ←
+        </Link>
         <h1 className="font-display text-base sm:text-lg text-amber-300">Life</h1>
         <label className="flex items-center gap-1">
-          <span className="text-zinc-400">Players</span>
+          <span className="text-zinc-400 hidden sm:inline">Players</span>
+          <span className="text-zinc-400 sm:hidden">P</span>
           <select
             value={playerCount}
             onChange={(e) => applyPlayerCount(Number(e.target.value))}
-            className="bg-bg-raised border border-bg-border rounded px-2 py-1"
+            className="bg-bg-raised border border-bg-border rounded px-1.5 py-0.5"
           >
             {[2, 3, 4, 5, 6].map((n) => (
               <option key={n} value={n}>{n}</option>
@@ -317,11 +333,11 @@ export function LifeTracker() {
           </select>
         </label>
         <label className="flex items-center gap-1">
-          <span className="text-zinc-400">Start at</span>
+          <span className="text-zinc-400 hidden sm:inline">Start</span>
           <select
             value={startingLife}
             onChange={(e) => applyStartingLife(Number(e.target.value) as StartingLife)}
-            className="bg-bg-raised border border-bg-border rounded px-2 py-1"
+            className="bg-bg-raised border border-bg-border rounded px-1.5 py-0.5"
           >
             <option value={40}>40</option>
             <option value={30}>30</option>
@@ -330,19 +346,23 @@ export function LifeTracker() {
         </label>
         <button
           onClick={() => setConfirmReset(true)}
-          className="btn btn-ghost text-xs ml-auto"
+          className="btn btn-ghost text-xs ml-auto px-2 py-0.5"
           title="Reset all players to starting life"
         >
-          ↺ New game
+          ↺ <span className="hidden sm:inline">New game</span><span className="sm:hidden">New</span>
         </button>
       </section>
 
-      {/* Player grid. 4-player mode pairs rotated/un-rotated rows. */}
-      <div className={`grid ${layout.cols} gap-2 sm:gap-3`}>
+      {/* Player grid fills remaining height. Each cell stretches to
+          fill its grid track via the PlayerCard's h-full w-full. */}
+      <div className={`flex-1 grid ${layout.cls} gap-1.5 sm:gap-2 min-h-0`}>
         {players.map((p, i) => {
-          const rotated = layout.rotateTopRow && i < layout.topCount;
+          const rotated = layout.rotateIndices.includes(i);
           return (
-            <div key={p.id} className={rotated ? "rotate-180" : ""}>
+            <div
+              key={p.id}
+              className={`min-h-0 min-w-0 ${rotated ? "rotate-180" : ""}`}
+            >
               <PlayerCard
                 player={p}
                 index={i}
@@ -431,11 +451,13 @@ function PlayerCard({
 
   return (
     <article
-      className={`relative rounded-xl overflow-hidden card-shadow border-2 ${
+      className={`relative w-full h-full rounded-xl overflow-hidden card-shadow border-2 ${
         eliminated ? "border-red-700/70 opacity-70" : "border-white/10"
       }`}
-      // Aspect tuned so 4-up on a 6.7" phone fills the screen without scroll.
-      style={{ aspectRatio: "5 / 4", minHeight: 200 }}
+      // container-type lets the inner life numeral scale relative to
+      // this card's width via cqi units — bigger when 2-up, smaller
+      // when 6-up, all from one font-size rule.
+      style={{ containerType: "inline-size" }}
     >
       {/* Background: commander art or seat-color fallback */}
       {art ? (
@@ -468,50 +490,60 @@ function PlayerCard({
       <button
         onClick={() => onLife(-1)}
         aria-label="−1 life"
-        className="absolute left-0 top-10 bottom-12 sm:top-12 sm:bottom-14 z-10 w-1/2 group"
+        className="absolute left-0 top-8 bottom-9 z-10 w-1/2 group"
       >
-        <span className="absolute inset-y-0 left-2 flex items-center text-3xl sm:text-4xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
+        <span className="absolute inset-y-0 left-2 flex items-center text-2xl sm:text-3xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
           −
         </span>
       </button>
       <button
         onClick={() => onLife(1)}
         aria-label="+1 life"
-        className="absolute right-0 top-10 bottom-12 sm:top-12 sm:bottom-14 z-10 w-1/2 group"
+        className="absolute right-0 top-8 bottom-9 z-10 w-1/2 group"
       >
-        <span className="absolute inset-y-0 right-2 flex items-center text-3xl sm:text-4xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
+        <span className="absolute inset-y-0 right-2 flex items-center text-2xl sm:text-3xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
           +
         </span>
       </button>
 
-      {/* Top bar — player name + commander pill */}
-      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between gap-1 p-1.5 sm:p-2">
+      {/* Top bar — player name + commander pill. Kept thin so the
+          central life numeral has maximum vertical real estate. */}
+      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between gap-1 px-1.5 py-1">
         <input
           value={player.name}
           maxLength={24}
           onChange={(e) => onRename(e.target.value)}
-          className="bg-transparent text-white text-xs sm:text-sm font-medium px-1 py-0.5 rounded border border-transparent hover:border-white/20 focus:border-white/40 focus:bg-black/40 outline-none min-w-0 flex-1"
+          className="bg-transparent text-white text-[11px] sm:text-xs font-medium px-1 py-0.5 rounded border border-transparent hover:border-white/20 focus:border-white/40 focus:bg-black/40 outline-none min-w-0 flex-1"
           aria-label={`Player ${index + 1} name`}
         />
         <button
           onClick={onOpenPicker}
-          className="text-[10px] sm:text-[11px] text-white/80 hover:text-amber-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded border border-white/10 truncate max-w-[120px] sm:max-w-[160px]"
+          className="text-[10px] text-white/80 hover:text-amber-300 bg-black/40 hover:bg-black/60 px-1.5 py-0.5 rounded border border-white/10 truncate max-w-[100px] sm:max-w-[140px] flex-shrink-0"
           title="Set or change this player's commander"
         >
-          {player.commander ? `⚔ ${player.commander.name}` : "+ Commander"}
+          {player.commander ? `⚔ ${player.commander.name.split(",")[0]}` : "+ Commander"}
         </button>
       </div>
 
-      {/* Centered life — non-interactive so the tap zones get the clicks */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div className={`font-mono font-bold text-[6rem] sm:text-[7rem] leading-none drop-shadow-lg ${lifeColor}`}>
+      {/* Centered life — non-interactive so the tap zones get the clicks.
+          The numeral scales with the smaller of the card's two dimensions
+          via clamp(min, viewport-relative, max), so it stays huge on a
+          tablet but shrinks gracefully when a 6th player joins the grid. */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2">
+        <div
+          className={`font-mono font-bold leading-none drop-shadow-lg ${lifeColor}`}
+          style={{ fontSize: "clamp(2.5rem, 18cqi, 8rem)" }}
+        >
           {player.life}
         </div>
-        <div className="text-[10px] uppercase tracking-[0.2em] text-white/60 mt-1">life</div>
+        <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-white/60 mt-1">
+          life
+        </div>
       </div>
 
-      {/* Bottom bar — secondary counters and undo */}
-      <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between gap-1 p-1.5 sm:p-2">
+      {/* Bottom bar — secondary counters and undo. Same vertical
+          budget as the top bar to keep the layout symmetric. */}
+      <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between gap-1 px-1.5 py-1">
         <CornerButton onClick={() => onLife(-5)} aria-label="−5 life">−5</CornerButton>
         <CornerButton
           onClick={() => onPoison(1)}
@@ -522,7 +554,7 @@ function PlayerCard({
           aria-label="Poison counter"
           highlighted={player.poison > 0}
         >
-          <span className="text-base">☠</span>
+          <span>☠</span>
           <span className="font-mono ml-0.5">{player.poison}</span>
         </CornerButton>
         <CornerButton
@@ -530,7 +562,7 @@ function PlayerCard({
           aria-label="Commander damage"
           highlighted={maxCmdrDmg > 0}
         >
-          <span className="text-base">⚔</span>
+          <span>⚔</span>
           <span className="font-mono ml-0.5">{maxCmdrDmg}</span>
         </CornerButton>
         <CornerButton
@@ -556,7 +588,7 @@ function CornerButton({
     <button
       {...rest}
       disabled={disabled}
-      className={`flex items-center justify-center px-2 py-1 rounded text-xs font-medium text-white transition select-none ${
+      className={`flex items-center justify-center px-1.5 py-0.5 rounded text-[11px] font-medium text-white transition select-none min-w-[28px] ${
         highlighted
           ? "bg-amber-700/70 hover:bg-amber-600/80"
           : "bg-black/40 hover:bg-black/60"

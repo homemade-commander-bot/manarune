@@ -40,6 +40,11 @@ export function CommanderPicker() {
   const [error, setError] = useState<string | null>(null);
   const [autocomplete, setAutocomplete] = useState<string[]>([]);
   const [pendingReplace, setPendingReplace] = useState<Card | null>(null);
+  // Tracks how long the initial load has been spinning. Drives the
+  // multi-phase progress message so the user understands the app is
+  // actually doing something rather than stuck. Reset whenever a
+  // search starts.
+  const [loadPhase, setLoadPhase] = useState<"initial" | "slow" | "timeout">("initial");
   const hover = useCardHover();
   const debounce = useRef<number | null>(null);
 
@@ -84,6 +89,12 @@ export function CommanderPicker() {
   async function runSearch(text: string, cs = colors) {
     setLoading(true);
     setError(null);
+    setLoadPhase("initial");
+    // Tier the progress message: 8s = "still loading"; 25s = surface
+    // a retry hint. The timers fire as side effects only; if the
+    // search completes earlier they're cleared in `finally`.
+    const slowTimer = window.setTimeout(() => setLoadPhase("slow"), 8000);
+    const timeoutTimer = window.setTimeout(() => setLoadPhase("timeout"), 25000);
     try {
       const q = buildQuery(text, cs);
       const cards = await searchCommanders(q, 30);
@@ -92,7 +103,10 @@ export function CommanderPicker() {
       setError(e instanceof Error ? e.message : "Search failed");
       setResults([]);
     } finally {
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(timeoutTimer);
       setLoading(false);
+      setLoadPhase("initial");
     }
   }
 
@@ -258,9 +272,36 @@ export function CommanderPicker() {
       <section>
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-sm uppercase tracking-wider text-zinc-400">{headerText}</h2>
-          {loading && <span className="text-xs text-amber-400">Searching…</span>}
+          {loading && (
+            <span className="text-xs text-amber-400 flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              {loadPhase === "initial" && "Fetching commanders from Scryfall…"}
+              {loadPhase === "slow" && "Still loading — this can take a few seconds on first visit."}
+              {loadPhase === "timeout" && (
+                <>
+                  Taking longer than usual.
+                  <button
+                    onClick={() => void runSearch(query)}
+                    className="underline hover:text-amber-300"
+                  >
+                    Retry
+                  </button>
+                </>
+              )}
+            </span>
+          )}
         </div>
-        {error && <div className="panel p-4 text-red-400 text-sm">{error}</div>}
+        {error && (
+          <div className="panel p-4 text-red-400 text-sm flex items-center justify-between gap-2">
+            <span>{error}</span>
+            <button
+              onClick={() => void runSearch(query)}
+              className="text-xs underline hover:text-red-200"
+            >
+              Try again
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {results.map((c) => (
             <div key={c.id} {...hoverProps(c, hover)} className="space-y-2">
@@ -283,6 +324,13 @@ export function CommanderPicker() {
               </div>
             </div>
           ))}
+
+          {/* Skeleton cards during the initial fetch. Same grid cell
+              shape as a real result so the layout doesn't jump when
+              the data lands. */}
+          {loading && results.length === 0 &&
+            Array.from({ length: 12 }).map((_, i) => <CommanderSkeleton key={`sk-${i}`} />)}
+
           {!loading && results.length === 0 && !error && (
             <div className="col-span-full text-center text-zinc-500 py-12">
               No commanders match. Try a different name or color combination.
@@ -311,6 +359,22 @@ export function CommanderPicker() {
       />
 
       <CardHoverLayer hover={hover} />
+    </div>
+  );
+}
+
+// Placeholder card shown in the grid while the initial search is in
+// flight. Same outer shape as a real result tile so the grid doesn't
+// reflow when the data arrives.
+function CommanderSkeleton() {
+  return (
+    <div className="space-y-2 animate-pulse">
+      <div className="aspect-[5/7] rounded-lg bg-bg-raised border border-bg-border" />
+      <div className="space-y-1">
+        <div className="h-3 bg-bg-raised rounded w-3/4" />
+        <div className="h-2 bg-bg-raised rounded w-1/2" />
+        <div className="h-7 bg-bg-raised rounded mt-1" />
+      </div>
     </div>
   );
 }
