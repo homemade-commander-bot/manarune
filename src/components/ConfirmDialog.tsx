@@ -17,6 +17,7 @@
 //   />
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 interface Props {
   open: boolean;
@@ -66,10 +67,16 @@ export function ConfirmDialog({
   }, [open, onCancel]);
 
   if (!open) return null;
+  // Portaled to document.body so the dialog escapes any rotated /
+  // transformed ancestor (e.g. ForceLandscape on /play). Without
+  // this, the rotated coordinate system would also rotate the
+  // dialog, and the soft keyboard / tap zones land in the wrong
+  // physical positions on a mobile device.
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-[fadeIn_120ms_ease-out]"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-[fadeIn_120ms_ease-out]"
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
@@ -120,6 +127,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

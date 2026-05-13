@@ -19,6 +19,7 @@
 // doesn't reset the table.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { scryfall, frontImage } from "@/lib/scryfall";
 import { canBeCommander } from "@/lib/commander-rules";
@@ -487,21 +488,27 @@ function PlayerCard({
           bar and the bottom button row so those controls remain
           tappable. z-10 sits ABOVE the life numeral (which uses
           pointer-events-none) but BELOW the top/bottom UI. */}
+      {/* −1 / +1 tap zones. Glyphs are ALWAYS visible at moderate
+          opacity (touch devices have no hover), with a brighter
+          active-state pulse so users get visual confirmation of the
+          tap. Aria-labels are explicit because the visible character
+          is a math minus, not a hyphen — screen readers should
+          announce "decrease life" rather than the punctuation. */}
       <button
         onClick={() => onLife(-1)}
-        aria-label="−1 life"
+        aria-label="Decrease life by 1"
         className="absolute left-0 top-8 bottom-9 z-10 w-1/2 group"
       >
-        <span className="absolute inset-y-0 left-2 flex items-center text-2xl sm:text-3xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
+        <span className="absolute inset-y-0 left-3 sm:left-4 flex items-center text-4xl sm:text-5xl text-white/35 group-hover:text-white/60 group-active:text-white/95 group-active:scale-125 font-mono font-bold select-none transition drop-shadow-md">
           −
         </span>
       </button>
       <button
         onClick={() => onLife(1)}
-        aria-label="+1 life"
+        aria-label="Increase life by 1"
         className="absolute right-0 top-8 bottom-9 z-10 w-1/2 group"
       >
-        <span className="absolute inset-y-0 right-2 flex items-center text-2xl sm:text-3xl text-white/0 group-hover:text-white/40 group-active:text-white/70 font-mono select-none transition">
+        <span className="absolute inset-y-0 right-3 sm:right-4 flex items-center text-4xl sm:text-5xl text-white/35 group-hover:text-white/60 group-active:text-white/95 group-active:scale-125 font-mono font-bold select-none transition drop-shadow-md">
           +
         </span>
       </button>
@@ -513,7 +520,15 @@ function PlayerCard({
           value={player.name}
           maxLength={24}
           onChange={(e) => onRename(e.target.value)}
-          className="bg-transparent text-white text-[11px] sm:text-xs font-medium px-1 py-0.5 rounded border border-transparent hover:border-white/20 focus:border-white/40 focus:bg-black/40 outline-none min-w-0 flex-1"
+          // 16px on focus prevents iOS Safari auto-zoom, which is
+          // especially disorienting when the page is also CSS-rotated.
+          // Rendered at 11px via inline style + scale-down on the
+          // unfocused state? Simpler: use 16px always and let Tailwind
+          // text-xs apply only to the placeholder dimension via class.
+          // The font-size: 16px keeps the OS happy; the inline width
+          // constraint keeps the visible footprint tight.
+          style={{ fontSize: "16px" }}
+          className="bg-transparent text-white font-medium px-1 py-0.5 rounded border border-transparent hover:border-white/20 focus:border-white/40 focus:bg-black/40 outline-none min-w-0 flex-1"
           aria-label={`Player ${index + 1} name`}
         />
         <button
@@ -588,10 +603,15 @@ function CornerButton({
     <button
       {...rest}
       disabled={disabled}
-      className={`flex items-center justify-center px-1.5 py-0.5 rounded text-[11px] font-medium text-white transition select-none min-w-[28px] ${
+      // Bumped from px-1.5/py-0.5/28px min to px-3/py-2/44px min so
+      // they hit Apple's accessibility tap-target guideline (44px)
+      // and are visibly distinct against the commander art behind
+      // them. The text/glyph also goes from text-[11px] to text-sm
+      // for at-a-glance readability across the table.
+      className={`flex items-center justify-center gap-0.5 px-3 py-2 rounded-md text-sm font-semibold text-white transition select-none min-w-[44px] min-h-[36px] ring-1 ring-white/10 ${
         highlighted
-          ? "bg-amber-700/70 hover:bg-amber-600/80"
-          : "bg-black/40 hover:bg-black/60"
+          ? "bg-amber-700/80 hover:bg-amber-600/90"
+          : "bg-black/55 hover:bg-black/70"
       } ${disabled ? "opacity-30 cursor-not-allowed" : "active:scale-95"}`}
     >
       {children}
@@ -655,9 +675,15 @@ function CommanderQuickPicker({
     }
   }
 
-  return (
+  // Portal the modal to document.body so it escapes the ForceLandscape
+  // 90° rotation. The soft keyboard on mobile is system-driven and
+  // appears in physical/unrotated coordinates, so the input must
+  // live in unrotated coordinates too — otherwise the focused input
+  // ends up off-screen or partially obscured by the keyboard.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4 pt-20 sm:pt-4 animate-[fadeIn_120ms_ease-out]"
+      className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4 pt-20 sm:pt-4 animate-[fadeIn_120ms_ease-out]"
       onClick={onClose}
     >
       <div
@@ -679,7 +705,7 @@ function CommanderQuickPicker({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search commanders…"
-          className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500/60"
+          className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-base outline-none focus:ring-2 focus:ring-amber-500/60"
         />
 
         {error && <div className="text-xs text-red-400">{error}</div>}
@@ -709,7 +735,8 @@ function CommanderQuickPicker({
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -726,9 +753,13 @@ function CommanderDamageModal({
   onAdjust: (opponentIdx: number, delta: number) => void;
   onClose: () => void;
 }) {
-  return (
+  // Portaled out of the rotated /play viewport for the same reason
+  // as the commander picker — the +/− buttons stay where the user's
+  // thumb expects them, in physical-screen coordinates.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-[fadeIn_120ms_ease-out]"
+      className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-[fadeIn_120ms_ease-out]"
       onClick={onClose}
     >
       <div
@@ -783,6 +814,7 @@ function CommanderDamageModal({
           })}
         </ul>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
