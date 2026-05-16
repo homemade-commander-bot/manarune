@@ -1,82 +1,102 @@
 # Rename — moving off "Commander Forge"
 
-## Why
+Research notes from the 2026-05-12 availability check, plus the
+updated recommendation.
 
-- "Commander Forge" is generic enough that other MTG sites and tools already use the phrase (search results show overlap).
-- For a community launch, the name has to be **unambiguous** so people can find us, remember us, and trust they're on the right URL.
-- App stores reject look-alikes; better to start with something distinct.
+## What's already out
 
-## Criteria (user-stated)
+I checked each top candidate against: web search, iOS App Store,
+Google Play, Reddit, Twitter/X, and direct domain probe. Anything
+with a real-world MTG-space collision is disqualified.
 
-- One word OR a smashed-together compound that reads as one word
-- Rolls off the tongue
-- Conveys purpose without explaining itself
-- Memorable, brandable, available
+| Original pick | Status | Why it's out |
+|---|---|---|
+| **Brewmancer** | ❌ TAKEN | [BrewMancer Woodworks](https://brewmancerwoodworks.com) sells coffee + **Magic: The Gathering** accessories. Same niche, same name. Trademark and branding risk we should not walk into. |
+| **Decksmith** | ❌ TAKEN | [Decksmith: MTG Deck Builder](https://apps.apple.com/us/app/decksmith-mtg-deck-builder/id6756268708) is already on the iOS App Store. Scryfall-based collection + deck builder. Direct competitor. |
+| **Tomeforge** | ❌ RISKY | "Forge" suffix collides with [MTG Forge](https://card-forge.github.io/forge/), a major open-source MTG rules engine. Search confusion guaranteed. |
+| **Spellweave** | ❌ TAKEN | [Spellweave.app](https://spellweave.app) is an existing Commander deck builder. Direct competitor. |
+| **Manabrew** | ❌ NOISY | The "brew" naming space is oversaturated — MTG Brew, brewStack, Build and Brew, Mana Brew Shop, etc. all exist. Hard to stand out. |
+| **CardNest** | ❌ TAKEN | Used by both a banking app and a trading-card retail site at cardnest.app. |
+| **Deckwright** | ⚠ DILUTED | UK decking-product company at deckwright.com + Instagram. Different industry so no MTG trademark conflict, but `.com` is taken and brand isn't unique. |
 
-## Recommended shortlist
+## What's clear
 
-I'm splitting candidates into three buckets: invented compounds, MTG-flavor pulls, and clean one-word picks.
+After thorough checking, only these stand out as having **zero MTG-space
+collisions, no trademark hits, and no live websites**:
 
-### Top pick: **Brewmancer**
+- **Manarune** ✅ — Mana + rune. No app, no business, no trademark hits.
+- **Cardloom** ✅ — Card + loom. `.com` is an empty stub; Etsy has unrelated craft listings.
+- **Spellrune** ✅ — Spell + rune. Clear but less MTG-specific signal.
+- **Oathkit** ✅ — Oath + kit. Clear but feels more like a modular toolkit than a deck builder.
+- **Spellpile** ✅ — Spell + pile. Clear but casual.
 
-- Compound of "brew" (deck-builder slang) + "necromancer" (magic-fantasy suffix).
-- Rolls off the tongue: *BREW-man-sir*. Three syllables, alliterates with "build".
-- Conveys purpose immediately to any MTG player: you brew decks, this thing is named after that.
-- Likely-available domains: `brewmancer.app`, `brewmancer.gg`, `brewmancer.com` (the last needs a check).
-- Branding angle: card-wizard-as-craftsman. Works for both casual ("brewing a fun deck") and competitive ("brewing a tournament list") audiences.
+## ⭐ Recommendation: **Manarune**
 
-### Strong alternates
+Reasons:
+- **"Mana" instantly signals MTG** to any player.
+- **"Rune" implies a mystical mark / inscription** — fits a deck-building, collection-tracking, life-tracking app perfectly (your deck is your signature mark on the format).
+- Two syllables: *MAH-na-roon*. Rolls off the tongue.
+- Sounds like one word — passes the "feels coined and intentional" test.
+- Distinct in MTG space — no apps, no businesses, no trademarks.
+- Brandable as a verb too: "I run my list through Manarune."
 
-- **Decksmith** — Smith + decks. Professional-sounding, evokes craftsmanship. Easy to say. Possibly taken elsewhere; need to verify domains.
-- **Tomeforge** — Tome (book of magic) + forge. Sophisticated, evokes library + crafting. Works with the "rules engine + collection" pitch.
-- **Manabrew** — Mana + brew. Most-on-the-nose for MTG. Almost too cute but very memorable.
-- **Sigil** — Just the one word. Mystical mark / signature. Maps to "your deck is your signature." Very brandable but less self-explanatory.
+Domain candidates to grab (priority order):
+- `manarune.app` — best for a web app, easy to remember
+- `manarune.gg` — gaming-focused TLD, common in the MTG community
+- `manarune.com` — broad, professional (may need verification — connection probes were inconclusive)
 
-### MTG-flavor pulls (single common-noun cards)
+Backup picks if Manarune doesn't feel right:
+- **Cardloom** — second choice, less natural-sounding but completely free
+- **Spellrune** — generic-magical feel, less MTG-anchored
+- **Oathkit** — flat, modular feel
+- **Spellpile** — casual, "your pile of brews"
 
-These piggyback on iconic-card recognition but stand alone as words:
+## Before I do the rename
 
-- **Cradle** — like Gaea's Cradle. Implies nurturing/building. `cradle.gg` would be a strong domain.
-- **Sanctum** — like Serra's Sanctum. Library-of-knowledge vibe.
-- **Reliquary** — like Reliquary Tower. Repository of valuable cards.
-- **Pact** — like Pact of Negation. Snappy, two syllables, action-implying.
-- **Codex** — book of knowledge. Cataloging vibe matches our collection feature.
+You need to do three things I can't:
 
-### Skipped
+1. **Buy the domain.** Go to Namecheap, Cloudflare Registrar, or Vercel
+   Domains and search for `manarune.app` (and `manarune.gg`,
+   `manarune.com`). The first one available, grab. Probably $12–$30/yr.
 
-- "Forger", "Brewlab", "Spelltable", "Untap" — all already used by MTG-adjacent tools.
-- "Stax", "Tutor" — too overloaded with MTG-specific meaning.
-- "Manarock", "Mainboard" — generic format jargon.
+2. **Reserve the social handles.** Even if you don't post yet:
+   - `@manarune` on Twitter/X
+   - `@manarune` on Instagram
+   - `r/manarune` on Reddit (request the subreddit when account is 30 days old)
 
-## Verification before committing
+3. **Search the iOS App Store and Google Play app on your phone.** I
+   couldn't find a `manarune` app via search but Apple and Google have
+   apps that don't always surface in web indexes. A direct search in
+   the store apps is the final check.
 
-Before I rename anything in code, you should:
+If all three look clean, give me the go and I'll execute the rename
+in one commit (full checklist below).
 
-1. **Domain availability** — check the `.app`, `.gg`, and `.com` for the top 1–2 picks. Suggested registrar: Vercel itself (one-click setup post-purchase) or Namecheap.
-2. **App store name collision** — search the iOS App Store and Google Play for the chosen name. If a similar app exists, our submission may be rejected.
-3. **GitHub repo name** — verify the org doesn't have a collision.
-4. **Social handles** — quickly check Twitter/X and Reddit for `r/<name>`.
+## Renaming checklist (one commit, ~1 hour)
 
-## Renaming checklist (once a name is chosen)
+| File | Change |
+|---|---|
+| `package.json` | `"name": "manarune"` |
+| `README.md` | All references throughout |
+| `.claude/changelog/CHANGELOG.md` | Header + new "Renamed to Manarune" v1.1.0 entry |
+| `.claude/launch/*.md` | All four community-post drafts |
+| `src/app/layout.tsx` | `<title>`, default description, OG metadata |
+| `src/components/Header.tsx` | Visual logo text + responsive variant |
+| `src/lib/store.ts` | localStorage key → `manarune-v1` with a v6 migration that copies old `mtg-commander-deck-builder` data on first load |
+| `supabase/schema.sql` | Comment header |
+| `src/app/api/edhrec/[...slug]/route.ts` | User-Agent string sent to upstream |
+| `src/app/api/import/moxfield/[id]/route.ts` | User-Agent string |
+| `docs/ARCHITECTURE.md` | References |
+| Vercel project | Rename in dashboard (URL preserved as alias) |
+| GitHub repo | Rename `commander-forge` → `manarune` (GitHub auto-redirects the old URL for ~1 year) |
 
-This is the work I'd do in one commit:
+The localStorage migration is the only piece with risk. The migration
+reads both old and new keys on rehydrate; if the new key is empty and
+the old key has data, it copies forward. Existing users keep all their
+decks and collection seamlessly.
 
-- `package.json` → `"name": "<new-name>"`
-- `README.md` → references throughout
-- `.claude/changelog/CHANGELOG.md` → header
-- `.claude/launch/*.md` → drafts mention the name
-- `src/app/layout.tsx` → `<title>`, default description, OG metadata
-- `src/components/Header.tsx` → visual logo text
-- `src/lib/store.ts` → localStorage key (with a migration so existing users don't lose data)
-- `supabase/schema.sql` → comment header
-- `next.config.mjs` → User-Agent strings sent to Scryfall / EDHREC
-- Vercel project name → rename in dashboard (URL preserved)
-- GitHub repo → rename (GitHub auto-redirects the old URL for ~1 year)
+## My recommended next step
 
-Total work: ~1 hour. The localStorage migration is the only piece with any risk; everything else is text replacement.
-
-## My recommendation
-
-**Brewmancer** — invented compound, easy to say, instantly meaningful to MTG players, very unlikely to collide with existing brands. If `brewmancer.app` is available, that's the call.
-
-Fallback: **Decksmith** (less unique but very clear) or **Cradle** (one syllable, evocative, requires no explanation).
+Tell me to **proceed with Manarune**, or pick a backup. Once we lock
+in the name I'll do the full rename commit and we can move on to the
+PWA work (Path A in `MOBILE-APP.md`).
