@@ -29,7 +29,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string[]
     const res = await fetch(upstream, {
       headers: {
         Accept: "application/json",
-        "User-Agent": "Commander-Forge/0.6 (+https://github.com/)",
+        "User-Agent": "Manarune/1.1 (+https://github.com/homemade-commander-bot/manarune)",
       },
       next: { revalidate: 3600 },
     });

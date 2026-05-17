@@ -1,7 +1,7 @@
 import { Header } from "@/components/Header";
 import { CollectionView } from "@/components/CollectionView";
 
-export const metadata = { title: "Collection — Commander Forge" };
+export const metadata = { title: "Collection — Manarune" };
 
 export default function CollectionPage() {
   return (

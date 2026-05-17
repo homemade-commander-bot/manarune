@@ -44,7 +44,11 @@ interface LifeEvent {
   fromOpponent?: number;
 }
 
-const STORAGE_KEY = "commander-forge.life-tracker.v2";
+// Renamed from "commander-forge.life-tracker.v2" in v1.1.0. The
+// loader below checks the legacy key as a fallback so a player in
+// the middle of a game doesn't lose their setup on reload.
+const STORAGE_KEY = "manarune.life-tracker.v2";
+const LEGACY_STORAGE_KEY = "commander-forge.life-tracker.v2";
 
 // Fallback color per seat — used only when a commander hasn't been
 // chosen. Once a commander is set, the art replaces the gradient.
@@ -69,7 +73,18 @@ interface PersistedConfig {
 function loadConfig(): PersistedConfig | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    // Prefer the current key; fall back to the legacy v1.0.x key from
+    // when the product was named Commander Forge. If we find a
+    // legacy snapshot we copy it forward so subsequent reads are
+    // cheap.
+    let raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      const legacy = sessionStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy) {
+        sessionStorage.setItem(STORAGE_KEY, legacy);
+        raw = legacy;
+      }
+    }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (

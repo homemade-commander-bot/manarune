@@ -1,6 +1,6 @@
 {
-  "name": "commander-forge",
-  "version": "1.0.0",
+  "name": "manarune",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

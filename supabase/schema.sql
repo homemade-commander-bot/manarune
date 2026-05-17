@@ -1,4 +1,4 @@
--- Commander Forge — Supabase schema
+-- Manarune — Supabase schema (previously "Commander Forge", pre-v1.1.0)
 -- Run this in the Supabase SQL editor against a fresh project.
 -- Tables are scoped per user via Row Level Security (RLS) so users can
 -- only read/write their own decks.

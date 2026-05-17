@@ -23,8 +23,7 @@ export function Header() {
           href="/"
           className="font-display text-lg sm:text-xl tracking-wide bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent whitespace-nowrap"
         >
-          {/* Same dedup trick: constant prefix, responsive suffix. */}
-          ⌬ <span className="hidden sm:inline">Commander </span>Forge
+          ⌬ Manarune
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           <Link href="/" className={nav("/")}>My Decks</Link>

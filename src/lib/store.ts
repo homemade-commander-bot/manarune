@@ -1,10 +1,44 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
 import type { Card, Deck, DeckEntry } from "./types";
 import { categorize } from "./analytics";
 import { isUnlimitedQuantity } from "./commander-rules";
+
+// ---- localStorage rename migration ----------------------------------------
+// The product renamed from "Commander Forge" → "Manarune" in v1.1.0, which
+// changed the persisted localStorage key from "mtg-commander-deck-builder" to
+// "manarune". This custom storage wrapper transparently copies the legacy
+// key's value forward on first read, so existing users keep every deck and
+// collection card without doing anything. The legacy key is left in place as
+// a backup; we'll prune it in a future release after enough time has passed
+// that all active users have rehydrated at least once.
+const LEGACY_KEY = "mtg-commander-deck-builder";
+
+const renamingStorage: StateStorage = {
+  getItem: (name: string) => {
+    if (typeof window === "undefined") return null;
+    const current = window.localStorage.getItem(name);
+    if (current !== null) return current;
+    const legacy = window.localStorage.getItem(LEGACY_KEY);
+    if (legacy !== null) {
+      // Copy the legacy snapshot under the new key so subsequent reads
+      // are fast and don't need to keep checking the old key.
+      window.localStorage.setItem(name, legacy);
+      return legacy;
+    }
+    return null;
+  },
+  setItem: (name: string, value: string) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(name, value);
+  },
+  removeItem: (name: string) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(name);
+  },
+};
 
 const newDeckId = () => `deck_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -486,8 +520,12 @@ export const useDeckStore = create<DeckStore>()(
         }),
     }),
     {
-      name: "mtg-commander-deck-builder",
-      storage: createJSONStorage(() => localStorage),
+      // Renamed from "mtg-commander-deck-builder" in v1.1.0. The
+      // renamingStorage wrapper above copies the legacy key forward
+      // on first read so existing users keep all their decks and
+      // their collection across the rename.
+      name: "manarune",
+      storage: createJSONStorage(() => renamingStorage),
       version: 5,
       // swipedIds is intentionally session-only (not persisted) — it's a
       // "don't show me this card twice this session" filter, not user data.

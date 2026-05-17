@@ -23,7 +23,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
           // Moxfield returns 403 to obvious bot UAs without a real-looking
           // string. A neutral browser-style UA gets through.
           "User-Agent":
-            "Mozilla/5.0 (compatible; CommanderForge/1.0; +https://github.com/homemade-commander-bot/commander-forge)",
+            "Mozilla/5.0 (compatible; Manarune/1.1; +https://github.com/homemade-commander-bot/manarune)",
         },
         next: { revalidate: 600 },
       });

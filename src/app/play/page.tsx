@@ -1,7 +1,7 @@
 import { ForceLandscape } from "@/components/ForceLandscape";
 import { LifeTracker } from "@/components/LifeTracker";
 
-export const metadata = { title: "Life Tracker — Commander Forge" };
+export const metadata = { title: "Life Tracker — Manarune" };
 
 // The life tracker is the one screen designed for a phone laid flat
 // in the middle of a table — so we drop the site header (saves ~50px

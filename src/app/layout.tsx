@@ -2,9 +2,23 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Commander Forge — MTG Deck Builder",
+  title: "Manarune — Commander deck builder, collection & life tracker",
   description:
-    "Build legal Magic: The Gathering Commander decks with a social-feed recommendation engine, EDHREC integration, mana curve analysis, TCGplayer pricing, and rules-aware validation.",
+    "Build legal Magic: The Gathering Commander decks with a social-feed recommendation engine, EDHREC integration, collection tracking, in-app life tracker, and rules-aware validation. Free, no signup required.",
+  // Open Graph metadata for link previews on Discord, Reddit, etc.
+  openGraph: {
+    title: "Manarune",
+    description:
+      "Free Commander deck builder, collection tracker, and table-side life tracker. EDHREC + Scryfall powered.",
+    siteName: "Manarune",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Manarune — Commander deck builder",
+    description:
+      "Free Commander deck builder, collection tracker, and table-side life tracker.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

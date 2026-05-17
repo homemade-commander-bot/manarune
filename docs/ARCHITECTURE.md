@@ -4,7 +4,7 @@ A friend dev raised the concern that "the frontend and backend aren't separated.
 
 ## TL;DR
 
-Commander Forge is a **single Next.js 15 App Router project** with:
+Manarune (formerly Commander Forge) is a **single Next.js 15 App Router project** with:
 
 - **Pure-logic libraries** under `src/lib/` — no React, no Next.js. Take inputs, return outputs. These could be lifted into a separate package tomorrow with zero changes.
 - **React components** under `src/components/` — read from a Zustand store and call lib functions. No direct HTTP calls except where wrapped through `src/lib/scryfall.ts` / `src/lib/edhrec.ts`.

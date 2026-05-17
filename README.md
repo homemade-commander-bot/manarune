@@ -1,6 +1,8 @@
-# Commander Forge
+# Manarune
 
-A free, browser-based deck builder for the Magic: The Gathering Commander format.
+A free, browser-based deck builder, collection tracker, and table-side life tracker for the Magic: The Gathering Commander format.
+
+> Renamed from "Commander Forge" in v1.1.0. Existing localStorage decks migrate forward automatically.
 
 **Use it without an account** — decks and your collection save to localStorage. Optional cloud sync via Supabase for cross-device access.
 
