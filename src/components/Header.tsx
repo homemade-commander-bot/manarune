@@ -21,9 +21,18 @@ export function Header() {
       <div className="max-w-[1700px] mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-4">
         <Link
           href="/"
-          className="font-display text-lg sm:text-xl tracking-wide bg-gradient-to-r from-sky-400 via-violet-400 to-violet-600 bg-clip-text text-transparent whitespace-nowrap"
+          className="flex items-center gap-2 font-display text-lg sm:text-xl tracking-wide whitespace-nowrap"
         >
-          ⌬ Manarune
+          <img
+            src="/manarune-icon.png"
+            alt="Manarune"
+            width={28}
+            height={28}
+            className="h-7 w-7 rounded-md shrink-0"
+          />
+          <span className="bg-gradient-to-r from-sky-400 via-violet-400 to-violet-600 bg-clip-text text-transparent">
+            Manarune
+          </span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           <Link href="/" className={nav("/")}>My Decks</Link>
