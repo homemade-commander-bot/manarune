@@ -155,7 +155,7 @@ export function CardDetail({ card, deckId, onClose }: Props) {
                 title={`Add 1 non-foil copy to ${fastAddGroup?.name ?? "your collection"}`}
               >
                 ⚡ + {fastAddGroup?.name ?? "Collection"}
-                {ownedCount > 0 && <span className="ml-1 text-amber-300">({ownedCount} owned)</span>}
+                {ownedCount > 0 && <span className="ml-1 text-violet-300">({ownedCount} owned)</span>}
               </button>
               <button
                 onClick={() => addToCollection(card, 1, true, fastAddGroupId)}
@@ -222,7 +222,7 @@ export function CardDetail({ card, deckId, onClose }: Props) {
                         <div key={g.id} className="flex items-center gap-1 bg-bg-base border border-bg-border rounded px-2 py-1">
                           <span className="text-xs text-zinc-200">{g.name}</span>
                           {inGroup > 0 && (
-                            <span className="text-[10px] text-amber-300 font-mono">({inGroup})</span>
+                            <span className="text-[10px] text-violet-300 font-mono">({inGroup})</span>
                           )}
                           <button
                             onClick={() => addToCollection(card, 1, false, g.id)}
@@ -233,7 +233,7 @@ export function CardDetail({ card, deckId, onClose }: Props) {
                           </button>
                           <button
                             onClick={() => addToCollection(card, 1, true, g.id)}
-                            className="text-[10px] text-amber-400 hover:text-amber-300 px-1"
+                            className="text-[10px] text-violet-400 hover:text-violet-300 px-1"
                             title={`+1 foil to ${g.name}`}
                           >
                             +F
@@ -255,7 +255,7 @@ export function CardDetail({ card, deckId, onClose }: Props) {
             )}
 
             <div className="mt-4">
-              <h3 className="text-sm font-semibold text-amber-400 mb-1">Official rulings</h3>
+              <h3 className="text-sm font-semibold text-violet-400 mb-1">Official rulings</h3>
               {loadingRulings && <div className="text-xs text-zinc-500">Loading…</div>}
               {!loadingRulings && rulings && rulings.length === 0 && (
                 <div className="text-xs text-zinc-500">No rulings published.</div>
@@ -336,7 +336,7 @@ function PrintingsBlock({
     <div className="mt-4">
       <button
         onClick={onToggle}
-        className="flex items-center gap-1.5 text-sm font-semibold text-amber-400 hover:text-amber-300"
+        className="flex items-center gap-1.5 text-sm font-semibold text-violet-400 hover:text-violet-300"
         aria-expanded={open}
       >
         <span>{open ? "▾" : "▸"}</span>
@@ -364,7 +364,7 @@ function PrintingsBlock({
                     key={p.id}
                     className={`flex items-center gap-2 rounded px-2 py-1.5 ${
                       isCurrent
-                        ? "bg-amber-900/20 border border-amber-700/40"
+                        ? "bg-violet-900/20 border border-violet-700/40"
                         : "bg-bg-raised hover:bg-bg-border border border-transparent"
                     }`}
                   >
@@ -390,14 +390,14 @@ function PrintingsBlock({
                         {p.artist && <span>{p.artist}</span>}
                         {p.released_at && <span>· {p.released_at}</span>}
                         {price && <span className="text-emerald-400">· ${price}</span>}
-                        {isCurrent && <span className="text-amber-300">· current</span>}
+                        {isCurrent && <span className="text-violet-300">· current</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {deckId && !isCurrent && (
                         <button
                           onClick={() => onUseArt(p)}
-                          className="text-[11px] px-2 py-1 rounded border border-amber-700/40 bg-amber-900/20 text-amber-200 hover:bg-amber-900/40"
+                          className="text-[11px] px-2 py-1 rounded border border-violet-700/40 bg-violet-900/20 text-violet-200 hover:bg-violet-900/40"
                           title="Replace this card in the deck with this printing (quantity preserved)"
                         >
                           Use this art
@@ -405,7 +405,7 @@ function PrintingsBlock({
                       )}
                       <button
                         onClick={() => onAddToCollection(p)}
-                        className="text-[11px] px-2 py-1 rounded border border-bg-border bg-bg-raised text-zinc-300 hover:text-amber-300"
+                        className="text-[11px] px-2 py-1 rounded border border-bg-border bg-bg-raised text-zinc-300 hover:text-violet-300"
                         title={`Add this specific printing to ${fastAddGroupName ?? "your collection"}`}
                       >
                         + Coll

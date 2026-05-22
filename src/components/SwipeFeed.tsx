@@ -230,7 +230,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     return (
       <div className="panel p-12 text-center">
         <div className="text-5xl mb-3">🃏</div>
-        <h3 className="font-display text-xl text-amber-300 mb-1">Pick a commander to start swiping</h3>
+        <h3 className="font-display text-xl text-violet-300 mb-1">Pick a commander to start swiping</h3>
         <p className="text-zinc-400 text-sm">High-synergy recommendations from EDHREC, sized for a thumb.</p>
       </div>
     );
@@ -253,7 +253,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     return (
       <div className="panel p-12 text-center">
         <div className="text-5xl mb-3">🎉</div>
-        <h3 className="font-display text-xl text-amber-300 mb-1">All swiped!</h3>
+        <h3 className="font-display text-xl text-violet-300 mb-1">All swiped!</h3>
         <p className="text-zinc-400 text-sm mb-4">
           {seenAny
             ? "You've seen every recommendation that matches your filter. Reset to see them again, or switch off the synergy filter."
@@ -289,7 +289,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
     <div className="flex flex-col h-full">
       <div className="panel p-3 mb-3 flex items-center gap-2 flex-wrap">
         <div className="text-xs text-zinc-400">Swiping for</div>
-        <div className="font-semibold text-amber-300">{commander.name}</div>
+        <div className="font-semibold text-violet-300">{commander.name}</div>
         {partner && <div className="text-zinc-400 text-xs">+ {partner.name}</div>}
         <span className="text-xs text-zinc-500 ml-auto">{remaining} left</span>
         <label className="flex items-center gap-1 text-[11px] text-zinc-300">
@@ -297,7 +297,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
             type="checkbox"
             checked={synergyOnly}
             onChange={(e) => setSynergyOnly(e.target.checked)}
-            className="accent-amber-500"
+            className="accent-violet-500"
           />
           High-synergy only
         </label>
@@ -309,7 +309,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
             type="checkbox"
             checked={ownedOnly}
             onChange={(e) => setOwnedOnly(e.target.checked)}
-            className="accent-amber-500"
+            className="accent-violet-500"
           />
           Owned only
         </label>
@@ -380,7 +380,7 @@ export function SwipeFeed({ deck, onInspect }: Props) {
         <button
           onClick={undo}
           disabled={history.length === 0}
-          className="px-3 py-1.5 rounded-full bg-bg-raised border border-amber-700/40 text-amber-300 text-xs hover:bg-amber-900/20 transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 rounded-full bg-bg-raised border border-violet-700/40 text-violet-300 text-xs hover:bg-violet-900/20 transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Undo (U)"
           aria-label="Undo last action"
         >
@@ -463,7 +463,7 @@ function SwipeCard({
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => onInspect(rec.card)}
-            className={`font-semibold truncate hover:text-amber-300 text-left ${hasCombo ? "text-fuchsia-200" : ""}`}
+            className={`font-semibold truncate hover:text-violet-300 text-left ${hasCombo ? "text-fuchsia-200" : ""}`}
             title={rec.card.name}
           >
             {rec.card.name}

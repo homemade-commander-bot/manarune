@@ -175,7 +175,7 @@ export function CommanderOfTheDay() {
             />
           )}
           <div className="min-w-0 max-w-2xl sm:pr-44">
-            <div className="text-[10px] sm:text-xs uppercase tracking-[0.18em] text-amber-300/90 font-semibold">
+            <div className="text-[10px] sm:text-xs uppercase tracking-[0.18em] text-violet-300/90 font-semibold">
               Commander of the day
             </div>
             <h2 className="font-display text-2xl sm:text-4xl text-white drop-shadow mt-1 truncate">

@@ -38,7 +38,7 @@ export default function BuildPage() {
         <main className="flex-1 flex items-center justify-center px-4">
           <div className="panel p-6 sm:p-8 text-center max-w-md w-full">
             <div className="text-4xl mb-2" aria-hidden>🜂</div>
-            <h1 className="font-display text-2xl text-amber-400 mb-1">No deck selected</h1>
+            <h1 className="font-display text-2xl text-violet-400 mb-1">No deck selected</h1>
             <p className="text-zinc-400 text-sm mb-5">
               Start a fresh build by picking a commander, or jump into an existing list.
             </p>
@@ -105,7 +105,7 @@ export default function BuildPage() {
               <button
                 onClick={() => setTab("feed")}
                 className={`px-3 sm:px-4 py-1.5 rounded text-sm font-medium transition ${
-                  tab === "feed" ? "bg-amber-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
+                  tab === "feed" ? "bg-violet-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
                 }`}
               >
                 ✦ Feed
@@ -113,7 +113,7 @@ export default function BuildPage() {
               <button
                 onClick={() => setTab("swipe")}
                 className={`px-3 sm:px-4 py-1.5 rounded text-sm font-medium transition ${
-                  tab === "swipe" ? "bg-amber-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
+                  tab === "swipe" ? "bg-violet-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
                 }`}
               >
                 ♥ Swipe
@@ -121,7 +121,7 @@ export default function BuildPage() {
               <button
                 onClick={() => setTab("search")}
                 className={`px-3 sm:px-4 py-1.5 rounded text-sm font-medium transition ${
-                  tab === "search" ? "bg-amber-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
+                  tab === "search" ? "bg-violet-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
                 }`}
               >
                 🔍 Search
@@ -166,7 +166,7 @@ function SectionTab({
     <button
       onClick={onClick}
       className={`flex-1 px-3 py-2 rounded text-sm font-medium transition ${
-        active ? "bg-amber-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
+        active ? "bg-violet-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
       }`}
     >
       {children}

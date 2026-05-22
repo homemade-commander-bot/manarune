@@ -17,8 +17,8 @@ const TYPE_COLORS: Record<DeckCategory, string> = {
   Instant: "#38bdf8",     // sky-400 — bright cyan
   Sorcery: "#dc2626",     // red-600 — pure blood red
   Artifact: "#cbd5e1",    // slate-300 — cool light steel/silver
-  Enchantment: "#fde047", // yellow-300 — pure lemon (cooler than amber)
-  Land: "#78350f",        // amber-900 — deep warm earth brown
+  Enchantment: "#fde047", // yellow-300 — pure lemon
+  Land: "#78350f",        // amber-900 — deep warm earth brown (intentionally NOT the brand violet)
 };
 
 // Order in which legend entries (and pie slices) appear. Commander
@@ -57,7 +57,7 @@ export function DeckStats({ deck }: { deck: Deck }) {
 
   return (
     <div className="panel p-3 space-y-3 text-sm">
-      <h3 className="font-display text-base text-amber-400">Deck Stats</h3>
+      <h3 className="font-display text-base text-violet-400">Deck Stats</h3>
 
       <div className="grid grid-cols-3 gap-2 text-center">
         <Stat label="Cards" value={`${total}/100`} ok={total === 100} />
@@ -94,8 +94,8 @@ export function DeckStats({ deck }: { deck: Deck }) {
                   <div
                     className={`w-full rounded-t-sm transition-all ${
                       isPeak
-                        ? "bg-gradient-to-t from-amber-700 to-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.35)]"
-                        : "bg-gradient-to-t from-amber-700/90 to-amber-500/80 hover:from-amber-600 hover:to-amber-400"
+                        ? "bg-gradient-to-t from-violet-700 to-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+                        : "bg-gradient-to-t from-violet-700/90 to-violet-500/80 hover:from-violet-600 hover:to-violet-400"
                     }`}
                     style={{
                       height: b.count === 0 ? "0" : `max(3px, ${ratio * 100}%)`,

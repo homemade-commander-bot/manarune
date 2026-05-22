@@ -174,7 +174,7 @@ export function CollectionView() {
       <section className="panel p-5">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="font-display text-3xl bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">
+            <h1 className="font-display text-3xl bg-gradient-to-r from-sky-400 via-violet-400 to-violet-600 bg-clip-text text-transparent">
               Your Collection
             </h1>
             <p className="text-zinc-400 text-sm mt-1">
@@ -182,10 +182,10 @@ export function CollectionView() {
             </p>
             {fastAddGroup && (
               <p className="text-[11px] text-zinc-500 mt-1">
-                Quick-add target: <span className="text-amber-300">{fastAddGroup.name}</span>
+                Quick-add target: <span className="text-violet-300">{fastAddGroup.name}</span>
                 <button
                   onClick={() => setShowGroupManager(true)}
-                  className="ml-2 underline hover:text-amber-400"
+                  className="ml-2 underline hover:text-violet-400"
                 >
                   change
                 </button>
@@ -238,7 +238,7 @@ export function CollectionView() {
         ))}
         <button
           onClick={() => setShowGroupManager(true)}
-          className="text-xs px-2 py-1 rounded text-zinc-400 hover:text-amber-300 hover:bg-bg-raised"
+          className="text-xs px-2 py-1 rounded text-zinc-400 hover:text-violet-300 hover:bg-bg-raised"
           title="Create a new group"
         >
           + New group
@@ -253,17 +253,17 @@ export function CollectionView() {
             placeholder="Filter by name…"
             value={nameQuery}
             onChange={(e) => setNameQuery(e.target.value)}
-            className="flex-1 min-w-[200px] bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500/60"
+            className="flex-1 min-w-[200px] bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/60"
           />
           <input
             type="search"
             placeholder='Scryfall syntax (e.g. t:creature pow>=4 c:b)'
             value={scryfallQuery}
             onChange={(e) => setScryfallQuery(e.target.value)}
-            className="flex-1 min-w-[260px] bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500/60 font-mono"
+            className="flex-1 min-w-[260px] bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/60 font-mono"
             title="Filters your collection to only the cards that match this Scryfall search"
           />
-          {scryfallLoading && <span className="text-xs text-amber-400">Searching…</span>}
+          {scryfallLoading && <span className="text-xs text-violet-400">Searching…</span>}
         </div>
         {scryfallError && (
           <div className="text-xs text-red-400">Scryfall: {scryfallError}</div>
@@ -293,7 +293,7 @@ export function CollectionView() {
                 key={c}
                 onClick={() => toggleColor(c)}
                 className={`mana-symbol mana-${c} ${
-                  colorFilter.includes(c) ? "ring-2 ring-amber-400" : "opacity-60 hover:opacity-100"
+                  colorFilter.includes(c) ? "ring-2 ring-violet-400" : "opacity-60 hover:opacity-100"
                 }`}
                 style={{ width: "1.4em", height: "1.4em", fontSize: "0.85em" }}
                 title={`Filter by ${c}`}
@@ -349,7 +349,7 @@ export function CollectionView() {
         {entries.length === 0 ? (
           <div className="panel p-12 text-center text-zinc-400">
             <div className="text-5xl mb-3">📦</div>
-            <h3 className="font-display text-xl text-amber-300 mb-1">
+            <h3 className="font-display text-xl text-violet-300 mb-1">
               {activeGroupId === ALL_GROUPS
                 ? "Your collection is empty"
                 : `${activeGroup?.name ?? "Group"} is empty`}
@@ -428,7 +428,7 @@ function GroupTab({
       onClick={onClick}
       className={`text-xs px-3 py-1.5 rounded-md border transition flex items-center gap-1.5 ${
         active
-          ? "bg-amber-600 border-amber-500 text-white"
+          ? "bg-violet-600 border-violet-500 text-white"
           : "bg-bg-raised border-bg-border text-zinc-300 hover:bg-bg-border"
       }`}
     >
@@ -445,13 +445,13 @@ function GroupTab({
 function StatTile({
   label,
   value,
-  accent = "amber",
+  accent = "violet",
 }: {
   label: string;
   value: string;
-  accent?: "amber" | "emerald";
+  accent?: "violet" | "emerald";
 }) {
-  const valueColor = accent === "emerald" ? "text-emerald-300" : "text-amber-300";
+  const valueColor = accent === "emerald" ? "text-emerald-300" : "text-violet-300";
   return (
     <div className="rounded-md border border-bg-border bg-bg-raised px-3 py-1.5 text-right">
       <div className="text-[10px] uppercase tracking-wider text-zinc-400">{label}</div>
@@ -522,7 +522,7 @@ function CollectionCard({
             onMinus={() => onDecrement(true)}
             onPlus={() => onIncrement(true)}
             onSet={(q) => onSetQuantity(q, true)}
-            accent="amber"
+            accent="violet"
           />
         </div>
       </div>
@@ -543,11 +543,11 @@ function QtyControl({
   onMinus: () => void;
   onPlus: () => void;
   onSet: (q: number) => void;
-  accent?: "amber";
+  accent?: "violet";
 }) {
   const valueClass =
-    accent === "amber"
-      ? quantity > 0 ? "text-amber-300" : "text-zinc-500"
+    accent === "violet"
+      ? quantity > 0 ? "text-violet-300" : "text-zinc-500"
       : quantity > 0 ? "text-zinc-100" : "text-zinc-500";
   return (
     <div className="flex items-center gap-1 bg-bg-raised border border-bg-border rounded px-1 py-0.5">
@@ -642,10 +642,10 @@ function GroupManagerModal({
         >
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="font-display text-xl text-amber-300">Collection groups</h3>
+              <h3 className="font-display text-xl text-violet-300">Collection groups</h3>
               <p className="text-xs text-zinc-400 mt-0.5">
                 Create sub-collections (binders, trade lists, deck piles). Pick one as the
-                ⚡ <span className="text-amber-300">fast-add</span> target — that&rsquo;s where the per-card
+                ⚡ <span className="text-violet-300">fast-add</span> target — that&rsquo;s where the per-card
                 &ldquo;+ Collection&rdquo; button on recommendation/search cards puts them.
               </p>
             </div>
@@ -662,7 +662,7 @@ function GroupManagerModal({
                 <li
                   key={g.id}
                   className={`flex items-center gap-2 px-2 py-1.5 rounded border ${
-                    isFastAdd ? "border-amber-600/40 bg-amber-900/10" : "border-bg-border bg-bg-raised"
+                    isFastAdd ? "border-violet-600/40 bg-violet-900/10" : "border-bg-border bg-bg-raised"
                   }`}
                 >
                   {renameId === g.id ? (
@@ -702,7 +702,7 @@ function GroupManagerModal({
                     <>
                       <button
                         onClick={() => onSwitchTo(g.id)}
-                        className="flex-1 text-left text-sm font-medium text-zinc-100 hover:text-amber-300 truncate"
+                        className="flex-1 text-left text-sm font-medium text-zinc-100 hover:text-violet-300 truncate"
                         title="Switch to this group"
                       >
                         {g.name}
@@ -715,8 +715,8 @@ function GroupManagerModal({
                         onClick={() => setFastAddGroup(g.id)}
                         className={`text-[11px] px-2 py-0.5 rounded border ${
                           isFastAdd
-                            ? "border-amber-500 bg-amber-600 text-white"
-                            : "border-bg-border text-zinc-400 hover:text-amber-300"
+                            ? "border-violet-500 bg-violet-600 text-white"
+                            : "border-bg-border text-zinc-400 hover:text-violet-300"
                         }`}
                         title={isFastAdd ? "This is the fast-add target" : "Make this the fast-add target"}
                       >
@@ -727,7 +727,7 @@ function GroupManagerModal({
                           setRenameId(g.id);
                           setRenameValue(g.name);
                         }}
-                        className="text-[11px] text-zinc-400 hover:text-amber-300 px-1"
+                        className="text-[11px] text-zinc-400 hover:text-violet-300 px-1"
                         title="Rename"
                       >
                         ✎

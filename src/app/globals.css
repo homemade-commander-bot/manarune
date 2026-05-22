@@ -9,8 +9,11 @@
   --grad-B: linear-gradient(135deg, #cbc2bf 0%, #2a2a2a 100%);
   --grad-R: linear-gradient(135deg, #f9aa8f 0%, #c14a3a 100%);
   --grad-G: linear-gradient(135deg, #9bd3ae 0%, #2f7c4d 100%);
-  --grad-default: radial-gradient(1200px 600px at 80% -10%, rgba(184, 134, 11, 0.18), transparent 60%),
-                  radial-gradient(900px 500px at -10% 110%, rgba(80, 50, 130, 0.18), transparent 60%);
+  /* Ambient background glow — echoes the app-icon palette: a cyan-blue
+     wash from the top-right fading into a violet wash from the
+     bottom-left, mirroring the rune's blue→violet energy. */
+  --grad-default: radial-gradient(1200px 600px at 80% -10%, rgba(56, 189, 248, 0.14), transparent 60%),
+                  radial-gradient(900px 500px at -10% 110%, rgba(139, 92, 246, 0.20), transparent 60%);
 }
 
 html, body {
@@ -79,10 +82,10 @@ body {
   @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all;
 }
 .btn-primary {
-  background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
+  background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%); /* violet-600 → violet-700 */
   @apply text-white shadow-sm;
 }
-.btn-primary:hover { background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%); }
+.btn-primary:hover { background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%); } /* violet-500 → violet-600 */
 .btn-ghost { @apply bg-bg-raised hover:bg-bg-border text-zinc-100 border border-bg-border; }
 .btn-danger { @apply bg-red-700/80 hover:bg-red-700 text-white; }
 
@@ -94,8 +97,8 @@ body {
   @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-bg-raised border border-bg-border;
 }
 
-.glow-amber {
-  box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.3), 0 0 24px rgba(217, 119, 6, 0.15);
+.glow-brand {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.35), 0 0 24px rgba(139, 92, 246, 0.18);
 }
 
 /* Card hover lift used in the feed */

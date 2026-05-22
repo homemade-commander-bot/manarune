@@ -28,7 +28,7 @@ function PickerLoading() {
   return (
     <div className="max-w-[1600px] mx-auto px-4 py-6 space-y-6">
       <section className="panel p-6">
-        <h1 className="font-display text-3xl text-amber-400">Choose Your Commander</h1>
+        <h1 className="font-display text-3xl text-violet-400">Choose Your Commander</h1>
         <p className="text-zinc-400 mt-1 text-sm">
           Loading commander database from Scryfall…
         </p>
@@ -36,7 +36,7 @@ function PickerLoading() {
       <section>
         <div className="text-sm uppercase tracking-wider text-zinc-400 mb-3">
           <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="inline-block w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
             Preparing…
           </span>
         </div>

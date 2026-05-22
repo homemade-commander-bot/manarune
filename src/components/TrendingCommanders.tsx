@@ -79,7 +79,7 @@ export function TrendingCommanders() {
   return (
     <section>
       <div className="flex items-baseline justify-between mb-3">
-        <h2 className="font-display text-xl text-amber-300">Trending commanders</h2>
+        <h2 className="font-display text-xl text-violet-300">Trending commanders</h2>
         <span className="text-xs text-zinc-500">via EDHREC · updated daily</span>
       </div>
       {cards === null ? (
@@ -97,7 +97,7 @@ export function TrendingCommanders() {
                 className="flex-shrink-0 w-[140px] sm:w-[160px] snap-start group"
                 title={`Start a new deck with ${c.name}`}
               >
-                <div className="relative overflow-hidden rounded-lg border border-bg-border group-hover:border-amber-500 transition card-shadow">
+                <div className="relative overflow-hidden rounded-lg border border-bg-border group-hover:border-violet-500 transition card-shadow">
                   {img ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={img} alt={c.name} className="w-full block" loading="lazy" />
@@ -106,12 +106,12 @@ export function TrendingCommanders() {
                       {c.name}
                     </div>
                   )}
-                  <div className="absolute top-1 left-1 bg-black/60 text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                  <div className="absolute top-1 left-1 bg-black/60 text-violet-300 text-[10px] font-bold px-1.5 py-0.5 rounded">
                     #{i + 1}
                   </div>
                 </div>
                 <div className="mt-1.5 text-left">
-                  <div className="text-xs font-semibold truncate group-hover:text-amber-300" title={c.name}>
+                  <div className="text-xs font-semibold truncate group-hover:text-violet-300" title={c.name}>
                     {c.name}
                   </div>
                   <div className="flex items-center gap-1 mt-0.5">

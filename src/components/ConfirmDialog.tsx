@@ -92,7 +92,7 @@ export function ConfirmDialog({
             className={`flex-none w-10 h-10 rounded-full flex items-center justify-center text-xl ${
               destructive
                 ? "bg-red-900/30 text-red-300 ring-1 ring-red-700/40"
-                : "bg-amber-900/30 text-amber-300 ring-1 ring-amber-700/40"
+                : "bg-violet-900/30 text-violet-300 ring-1 ring-violet-700/40"
             }`}
           >
             {destructive ? "⚠" : "?"}
@@ -100,7 +100,7 @@ export function ConfirmDialog({
           <div className="flex-1 min-w-0">
             <h3
               id="confirm-dialog-title"
-              className="font-display text-lg text-amber-300 leading-tight"
+              className="font-display text-lg text-violet-300 leading-tight"
             >
               {title}
             </h3>

@@ -37,7 +37,7 @@ export function DeckLibrary() {
             <div className="text-4xl sm:text-5xl flex-shrink-0">{profile.avatar}</div>
             <div className="min-w-0 flex-1">
               <div className="text-[10px] sm:text-xs uppercase tracking-widest text-zinc-400">Welcome back</div>
-              <h1 className="font-display text-2xl sm:text-3xl bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent truncate">
+              <h1 className="font-display text-2xl sm:text-3xl bg-gradient-to-r from-sky-400 via-violet-400 to-violet-600 bg-clip-text text-transparent truncate">
                 {profile.name}
               </h1>
               <div className="text-xs sm:text-sm text-zinc-400 mt-1">
@@ -74,9 +74,9 @@ export function DeckLibrary() {
 
       <section>
         <div className="flex items-baseline justify-between mb-4">
-          <h2 className="font-display text-2xl text-amber-300">Your decks</h2>
+          <h2 className="font-display text-2xl text-violet-300">Your decks</h2>
           {list.length > 0 && (
-            <Link href="/commanders" className="text-sm text-amber-400 hover:underline">
+            <Link href="/commanders" className="text-sm text-violet-400 hover:underline">
               Browse commanders →
             </Link>
           )}
@@ -85,7 +85,7 @@ export function DeckLibrary() {
         {list.length === 0 ? (
           <div className="panel p-12 text-center">
             <div className="text-6xl mb-3">🎴</div>
-            <h3 className="font-display text-xl text-amber-300 mb-1">No decks yet</h3>
+            <h3 className="font-display text-xl text-violet-300 mb-1">No decks yet</h3>
             <p className="text-zinc-400 text-sm mb-4">
               Pick a commander to start brewing. The recommendation feed builds itself around your choice.
             </p>

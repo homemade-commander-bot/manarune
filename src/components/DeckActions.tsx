@@ -33,7 +33,7 @@ export function DeckActions({ deck }: { deck: Deck }) {
         value={deck.name}
         maxLength={80}
         onChange={(e) => renameDeck(deck.id, e.target.value)}
-        className="w-full bg-bg-raised border border-bg-border rounded px-2 py-1 font-display text-amber-400"
+        className="w-full bg-bg-raised border border-bg-border rounded px-2 py-1 font-display text-violet-400"
         aria-label="Deck name"
       />
       <div className="flex flex-wrap gap-2">
@@ -69,7 +69,7 @@ export function DeckActions({ deck }: { deck: Deck }) {
             <div className="flex gap-1">
               <button
                 onClick={() => copy(open === "txt" ? toDeckText(deck) : toMarkdown(deck))}
-                className="text-xs underline text-amber-400"
+                className="text-xs underline text-violet-400"
               >
                 Copy
               </button>
@@ -80,7 +80,7 @@ export function DeckActions({ deck }: { deck: Deck }) {
                     open === "txt" ? toDeckText(deck) : toMarkdown(deck),
                   )
                 }
-                className="text-xs underline text-amber-400"
+                className="text-xs underline text-violet-400"
               >
                 Download
               </button>

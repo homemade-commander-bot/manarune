@@ -164,7 +164,7 @@ export function ImportDeckModal({ open, onClose }: Props) {
         {/* Header */}
         <div className="flex items-start justify-between gap-2 p-4 sm:p-5 border-b border-bg-border">
           <div>
-            <h2 className="font-display text-xl text-amber-300">Import a deck</h2>
+            <h2 className="font-display text-xl text-violet-300">Import a deck</h2>
             <p className="text-xs text-zinc-400 mt-0.5">
               Paste a decklist or a Moxfield URL. Scryfall resolves every card name.
             </p>
@@ -199,7 +199,7 @@ Deck
 1 Arcane Signet
 1 Burglar Rat
 ...`}
-                    className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-amber-500/60"
+                    className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-violet-500/60"
                     maxLength={50000}
                   />
                   <div className="text-[10px] text-zinc-500 mt-1">
@@ -216,7 +216,7 @@ Deck
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://moxfield.com/decks/abcDEF123"
-                    className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500/60"
+                    className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/60"
                     maxLength={500}
                   />
                   <div className="text-[10px] text-zinc-500 mt-1">
@@ -275,7 +275,7 @@ function ModeTab({
     <button
       onClick={onClick}
       className={`px-3 py-1.5 rounded text-xs font-medium transition ${
-        active ? "bg-amber-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
+        active ? "bg-violet-600 text-white" : "text-zinc-300 hover:bg-bg-raised"
       }`}
     >
       {children}
@@ -315,7 +315,7 @@ function ImportPreview({
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-2 text-center">
         <Stat label="Matched" value={String(matchedCount)} accent="emerald" />
-        <Stat label="Commander(s)" value={String(commanders.length)} accent="amber" />
+        <Stat label="Commander(s)" value={String(commanders.length)} accent="violet" />
         <Stat label="Unmatched" value={String(missingCount)} accent={missingCount > 0 ? "red" : "muted"} />
       </div>
 
@@ -335,7 +335,7 @@ function ImportPreview({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={img} alt={c.name} className="w-8 h-8 rounded object-cover" />
                   )}
-                  <span className="text-sm text-amber-200 truncate max-w-[200px]">{c.name}</span>
+                  <span className="text-sm text-violet-200 truncate max-w-[200px]">{c.name}</span>
                 </div>
               );
             })}
@@ -383,7 +383,7 @@ function ImportPreview({
           maxLength={80}
           onChange={(e) => onChangeDeckName(e.target.value)}
           placeholder={cmdPlaceholder}
-          className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500/60"
+          className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/60"
         />
         <div className="text-[10px] text-zinc-500 mt-0.5">
           Leave blank to name the deck after the commander.
@@ -395,7 +395,7 @@ function ImportPreview({
           type="checkbox"
           checked={addToColl}
           onChange={onToggleCollection}
-          className="accent-amber-500 mt-0.5"
+          className="accent-violet-500 mt-0.5"
         />
         <div>
           <div>Also add these cards to my collection</div>
@@ -430,11 +430,11 @@ function Stat({
 }: {
   label: string;
   value: string;
-  accent: "emerald" | "amber" | "red" | "muted";
+  accent: "emerald" | "violet" | "red" | "muted";
 }) {
   const palette = {
     emerald: { bg: "border-emerald-700/40 bg-emerald-900/15", text: "text-emerald-200" },
-    amber: { bg: "border-amber-700/40 bg-amber-900/15", text: "text-amber-200" },
+    violet: { bg: "border-violet-700/40 bg-violet-900/15", text: "text-violet-200" },
     red: { bg: "border-red-700/40 bg-red-900/20", text: "text-red-200" },
     muted: { bg: "border-bg-border bg-bg-raised", text: "text-zinc-300" },
   }[accent];

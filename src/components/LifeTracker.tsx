@@ -56,7 +56,7 @@ const SEAT_COLORS = [
   "from-emerald-800 to-emerald-950",
   "from-sky-800 to-sky-950",
   "from-fuchsia-800 to-fuchsia-950",
-  "from-amber-800 to-amber-950",
+  "from-violet-800 to-violet-950",
   "from-rose-800 to-rose-950",
   "from-violet-800 to-violet-950",
 ];
@@ -328,13 +328,13 @@ export function LifeTracker() {
       <section className="panel px-2 py-1.5 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm flex-shrink-0">
         <Link
           href="/"
-          className="text-zinc-400 hover:text-amber-300 text-base leading-none"
+          className="text-zinc-400 hover:text-violet-300 text-base leading-none"
           title="Back to deck library"
           aria-label="Back to deck library"
         >
           ←
         </Link>
-        <h1 className="font-display text-base sm:text-lg text-amber-300">Life</h1>
+        <h1 className="font-display text-base sm:text-lg text-violet-300">Life</h1>
         <label className="flex items-center gap-1">
           <span className="text-zinc-400 hidden sm:inline">Players</span>
           <span className="text-zinc-400 sm:hidden">P</span>
@@ -548,7 +548,7 @@ function PlayerCard({
         />
         <button
           onClick={onOpenPicker}
-          className="text-[10px] text-white/80 hover:text-amber-300 bg-black/40 hover:bg-black/60 px-1.5 py-0.5 rounded border border-white/10 truncate max-w-[100px] sm:max-w-[140px] flex-shrink-0"
+          className="text-[10px] text-white/80 hover:text-violet-300 bg-black/40 hover:bg-black/60 px-1.5 py-0.5 rounded border border-white/10 truncate max-w-[100px] sm:max-w-[140px] flex-shrink-0"
           title="Set or change this player's commander"
         >
           {player.commander ? `⚔ ${player.commander.name.split(",")[0]}` : "+ Commander"}
@@ -625,7 +625,7 @@ function CornerButton({
       // for at-a-glance readability across the table.
       className={`flex items-center justify-center gap-0.5 px-3 py-2 rounded-md text-sm font-semibold text-white transition select-none min-w-[44px] min-h-[36px] ring-1 ring-white/10 ${
         highlighted
-          ? "bg-amber-700/80 hover:bg-amber-600/90"
+          ? "bg-violet-700/80 hover:bg-violet-600/90"
           : "bg-black/55 hover:bg-black/70"
       } ${disabled ? "opacity-30 cursor-not-allowed" : "active:scale-95"}`}
     >
@@ -707,7 +707,7 @@ function CommanderQuickPicker({
       >
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-display text-lg text-amber-300">Set commander</h3>
+            <h3 className="font-display text-lg text-violet-300">Set commander</h3>
             <p className="text-[10px] text-zinc-400 mt-0.5">
               The art appears behind this player&apos;s life total. Only used here — doesn&apos;t touch your decks.
             </p>
@@ -720,7 +720,7 @@ function CommanderQuickPicker({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search commanders…"
-          className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-base outline-none focus:ring-2 focus:ring-amber-500/60"
+          className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 text-base outline-none focus:ring-2 focus:ring-violet-500/60"
         />
 
         {error && <div className="text-xs text-red-400">{error}</div>}
@@ -783,7 +783,7 @@ function CommanderDamageModal({
       >
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-display text-lg text-amber-300">
+            <h3 className="font-display text-lg text-violet-300">
               Commander damage to {target.name}
             </h3>
             <p className="text-[10px] text-zinc-400 mt-0.5">
@@ -820,7 +820,7 @@ function CommanderDamageModal({
                 </span>
                 <button
                   onClick={() => onAdjust(i, 1)}
-                  className="w-8 h-8 rounded bg-amber-700 hover:bg-amber-600 text-white font-mono"
+                  className="w-8 h-8 rounded bg-violet-700 hover:bg-violet-600 text-white font-mono"
                 >
                   +
                 </button>

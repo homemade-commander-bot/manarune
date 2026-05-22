@@ -195,16 +195,16 @@ export function CommanderPicker() {
           persistent banner so the user knows their pick will overwrite,
           not start a fresh deck. */}
       {replaceTarget && (
-        <div className="panel p-3 border-amber-700/40 bg-amber-900/10 flex items-center gap-2 text-sm">
-          <span className="text-amber-300">⚠</span>
+        <div className="panel p-3 border-violet-700/40 bg-violet-900/10 flex items-center gap-2 text-sm">
+          <span className="text-violet-300">⚠</span>
           <span className="flex-1">
             Replacing the commander on{" "}
-            <span className="font-semibold text-amber-300">{replaceTarget.name}</span>.
+            <span className="font-semibold text-violet-300">{replaceTarget.name}</span>.
             Your existing cards stay in the deck; only the commander changes.
           </span>
           <button
             onClick={() => router.push("/build")}
-            className="text-xs text-zinc-400 hover:text-amber-300 underline"
+            className="text-xs text-zinc-400 hover:text-violet-300 underline"
           >
             Cancel
           </button>
@@ -212,7 +212,7 @@ export function CommanderPicker() {
       )}
 
       <section className="panel p-6">
-        <h1 className="font-display text-3xl text-amber-400">
+        <h1 className="font-display text-3xl text-violet-400">
           {replaceTarget ? "Pick a new commander" : "Choose Your Commander"}
         </h1>
         <p className="text-zinc-400 mt-1 text-sm">
@@ -226,7 +226,7 @@ export function CommanderPicker() {
               placeholder='Try "dragon", "lifegain", "Atraxa", or "tokens"…'
               value={query}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 outline-none focus:ring-2 focus:ring-amber-500/60"
+              className="w-full bg-bg-raised border border-bg-border rounded px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500/60"
             />
             {autocomplete.length > 0 && query && (
               <div className="absolute z-20 left-0 right-0 mt-1 bg-bg-raised border border-bg-border rounded shadow-lg">
@@ -252,7 +252,7 @@ export function CommanderPicker() {
                 key={c.value}
                 onClick={() => toggleColor(c.value)}
                 className={`mana-symbol ${c.color} ${
-                  colors.includes(c.value) ? "ring-2 ring-amber-400" : "opacity-60 hover:opacity-100"
+                  colors.includes(c.value) ? "ring-2 ring-violet-400" : "opacity-60 hover:opacity-100"
                 }`}
                 title={`Filter by ${c.label}`}
                 style={{ width: "1.6em", height: "1.6em", fontSize: "0.9em" }}
@@ -273,8 +273,8 @@ export function CommanderPicker() {
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-sm uppercase tracking-wider text-zinc-400">{headerText}</h2>
           {loading && (
-            <span className="text-xs text-amber-400 flex items-center gap-1.5">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-xs text-violet-400 flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
               {loadPhase === "initial" && "Fetching commanders from Scryfall…"}
               {loadPhase === "slow" && "Still loading — this can take a few seconds on first visit."}
               {loadPhase === "timeout" && (
@@ -282,7 +282,7 @@ export function CommanderPicker() {
                   Taking longer than usual.
                   <button
                     onClick={() => void runSearch(query)}
-                    className="underline hover:text-amber-300"
+                    className="underline hover:text-violet-300"
                   >
                     Retry
                   </button>

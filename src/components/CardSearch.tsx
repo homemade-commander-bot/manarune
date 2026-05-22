@@ -90,7 +90,7 @@ export function CardSearch({ deck, onInspect }: Props) {
           placeholder="Search any card by name, text, or Scryfall syntax (e.g. o:'destroy target' cmc<=3)"
           value={query}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 min-w-[200px] bg-bg-raised border border-bg-border rounded px-3 py-2 outline-none focus:ring-2 focus:ring-amber-500/60 text-sm"
+          className="flex-1 min-w-[200px] bg-bg-raised border border-bg-border rounded px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500/60 text-sm"
         />
         <select
           value={type}
@@ -117,7 +117,7 @@ export function CardSearch({ deck, onInspect }: Props) {
         </label>
       </div>
 
-      {loading && <div className="text-xs text-amber-400 mb-2">Searching Scryfall…</div>}
+      {loading && <div className="text-xs text-violet-400 mb-2">Searching Scryfall…</div>}
       {error && <div className="text-xs text-red-400 mb-2">{error}</div>}
 
       <div className="flex-1 overflow-y-auto pr-1">
@@ -161,8 +161,8 @@ export function CardSearch({ deck, onInspect }: Props) {
                         onClick={() => fastAddToCollection(c)}
                         className={`text-[11px] px-2 py-1 rounded border transition flex-1 flex items-center justify-center gap-1 ${
                           owned
-                            ? "border-amber-700/40 bg-amber-900/30 text-amber-200 hover:bg-amber-900/50"
-                            : "border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-amber-300"
+                            ? "border-violet-700/40 bg-violet-900/30 text-violet-200 hover:bg-violet-900/50"
+                            : "border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-violet-300"
                         }`}
                         title={
                           owned
@@ -177,7 +177,7 @@ export function CardSearch({ deck, onInspect }: Props) {
                   })()}
                   <button
                     onClick={() => onInspect(c)}
-                    className="text-[11px] px-2 py-1 rounded border border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-amber-300 flex items-center justify-center gap-1"
+                    className="text-[11px] px-2 py-1 rounded border border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-violet-300 flex items-center justify-center gap-1"
                     title="Open the full card detail with rulings and purchase links"
                   >
                     <span aria-hidden>🔍</span>

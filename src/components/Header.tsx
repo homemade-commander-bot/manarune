@@ -12,7 +12,7 @@ export function Header() {
 
   function nav(path: string) {
     return `text-sm transition-colors px-2 py-1 rounded ${
-      pathname === path ? "text-amber-300 bg-bg-raised" : "text-zinc-300 hover:text-white"
+      pathname === path ? "text-violet-300 bg-bg-raised" : "text-zinc-300 hover:text-white"
     }`;
   }
 
@@ -21,7 +21,7 @@ export function Header() {
       <div className="max-w-[1700px] mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-4">
         <Link
           href="/"
-          className="font-display text-lg sm:text-xl tracking-wide bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent whitespace-nowrap"
+          className="font-display text-lg sm:text-xl tracking-wide bg-gradient-to-r from-sky-400 via-violet-400 to-violet-600 bg-clip-text text-transparent whitespace-nowrap"
         >
           ⌬ Manarune
         </Link>

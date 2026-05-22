@@ -64,7 +64,7 @@ export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card)
       }`}
     >
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-display text-lg text-amber-400">{deck.name}</h2>
+        <h2 className="font-display text-lg text-violet-400">{deck.name}</h2>
         <span className={`text-sm ${total === 100 ? "text-emerald-400" : "text-zinc-400"}`}>
           {total} / 100
         </span>
@@ -116,7 +116,7 @@ export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card)
                       )}
                       <button
                         {...hoverProps(e.card, hover)}
-                        className={`flex-1 text-left truncate hover:text-amber-300 ${isCombo ? "text-fuchsia-200 font-medium" : ""}`}
+                        className={`flex-1 text-left truncate hover:text-violet-300 ${isCombo ? "text-fuchsia-200 font-medium" : ""}`}
                         onClick={() => onInspect(e.card)}
                         title={e.card.oracle_text || e.card.name}
                       >
@@ -132,7 +132,7 @@ export function DeckList({ deck, onInspect }: { deck: Deck; onInspect: (c: Card)
                         </span>
                       )}
                       {isCmd && (
-                        <span className="chip text-[10px] text-amber-400 border-amber-700/40">CMDR</span>
+                        <span className="chip text-[10px] text-violet-400 border-violet-700/40">CMDR</span>
                       )}
                       {!isCmd && (
                         <button

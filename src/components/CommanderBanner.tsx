@@ -34,7 +34,7 @@ export function CommanderBanner({ deck, onInspectCommander }: { deck: Deck; onIn
           <div className="text-[10px] uppercase tracking-widest text-zinc-300/70">Commander</div>
           <button
             onClick={onInspectCommander}
-            className="font-display text-2xl sm:text-3xl text-white drop-shadow hover:text-amber-300 text-left truncate"
+            className="font-display text-2xl sm:text-3xl text-white drop-shadow hover:text-violet-300 text-left truncate"
           >
             {cmd.name}{partner ? ` + ${partner.name}` : ""}
           </button>

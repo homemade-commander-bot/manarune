@@ -157,7 +157,7 @@ export function CardHoverPreview({
         src={img}
         alt=""
         draggable={false}
-        className="w-full block rounded-xl shadow-2xl ring-1 ring-amber-700/40"
+        className="w-full block rounded-xl shadow-2xl ring-1 ring-violet-700/40"
       />
     </div>
   );

@@ -21,7 +21,7 @@ export function CardThumb({
     <button
       type="button"
       onClick={onClick}
-      className={`block w-full rounded-lg overflow-hidden card-shadow bg-bg-raised border border-bg-border hover:ring-2 hover:ring-amber-500/60 transition ${className}`}
+      className={`block w-full rounded-lg overflow-hidden card-shadow bg-bg-raised border border-bg-border hover:ring-2 hover:ring-violet-500/60 transition ${className}`}
       title={card.name}
     >
       {url && !errored ? (

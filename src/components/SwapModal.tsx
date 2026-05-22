@@ -56,10 +56,10 @@ export function SwapModal({
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onCancel}>
       <div className="panel max-w-lg w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="text-center">
-          <h3 className="font-display text-xl text-amber-400">Deck Full (100/100)</h3>
+          <h3 className="font-display text-xl text-violet-400">Deck Full (100/100)</h3>
           <p className="text-zinc-400 text-sm mt-1">
             Want to swap a card to make room for{" "}
-            <span className="text-amber-300 font-semibold">{incomingCard.name}</span>?
+            <span className="text-violet-300 font-semibold">{incomingCard.name}</span>?
           </p>
           <p className="text-[10px] text-zinc-500 mt-1">Hover any card to preview it.</p>
         </div>
@@ -88,7 +88,7 @@ export function SwapModal({
             </div>
           </div>
 
-          <div className="text-2xl text-amber-400">→</div>
+          <div className="text-2xl text-violet-400">→</div>
 
           <div className="flex-1 text-center">
             <div className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1">Add</div>

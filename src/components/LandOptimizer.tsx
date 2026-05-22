@@ -67,7 +67,7 @@ export function LandOptimizer({ deck, onInspect }: Props) {
   return (
     <div className="panel p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-sm text-amber-400">Land Base</h3>
+        <h3 className="font-display text-sm text-violet-400">Land Base</h3>
         <span className="text-[10px] text-zinc-500">{lands} lands / {total} cards</span>
       </div>
 
@@ -87,7 +87,7 @@ export function LandOptimizer({ deck, onInspect }: Props) {
           <button
             onClick={() => run("rich")}
             disabled={loading !== null}
-            className="btn flex-1 justify-center text-xs bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 text-black font-bold hover:from-yellow-400 hover:to-yellow-400 border-0"
+            className="btn flex-1 justify-center text-xs bg-gradient-to-r from-yellow-500 via-violet-400 to-yellow-500 text-black font-bold hover:from-yellow-400 hover:to-yellow-400 border-0"
             title="Add fetch lands, original duals, Gaea's Cradle, and other premium lands"
           >
             {loading === "rich" ? "Counting stacks..." : "I'm Rich"}
@@ -100,7 +100,7 @@ export function LandOptimizer({ deck, onInspect }: Props) {
       {plan && (
         <div className="space-y-2">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-amber-300">
+            <span className="text-xs font-semibold text-violet-300">
               {plan.mode === "rich" ? "Premium" : "Optimized"} mana base
             </span>
             <span className="text-[10px] text-zinc-500">
@@ -111,7 +111,7 @@ export function LandOptimizer({ deck, onInspect }: Props) {
           </div>
 
           {plan.landsToRemove.length > 0 && (
-            <div className="text-[10px] text-amber-200 bg-amber-900/20 border border-amber-700/30 rounded p-2">
+            <div className="text-[10px] text-violet-200 bg-violet-900/20 border border-violet-700/30 rounded p-2">
               Replacing: {plan.landsToRemove.map((id) => deck.entries[id]?.card.name).filter(Boolean).join(", ")}
             </div>
           )}
@@ -150,7 +150,7 @@ export function LandOptimizer({ deck, onInspect }: Props) {
               onClick={applyPlan}
               className={`btn flex-1 justify-center text-xs ${
                 plan.mode === "rich"
-                  ? "bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 text-black font-bold border-0"
+                  ? "bg-gradient-to-r from-yellow-500 via-violet-400 to-yellow-500 text-black font-bold border-0"
                   : "btn-primary"
               }`}
             >

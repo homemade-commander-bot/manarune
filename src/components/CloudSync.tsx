@@ -80,7 +80,7 @@ export function CloudSync() {
   if (!syncEnabled) {
     return (
       <section className="panel p-5">
-        <h2 className="font-display text-lg text-amber-300 mb-2">Cloud sync</h2>
+        <h2 className="font-display text-lg text-violet-300 mb-2">Cloud sync</h2>
         <p className="text-xs text-zinc-400">
           Cloud sync is not configured for this deployment. Your decks live in this browser only.
         </p>
@@ -94,7 +94,7 @@ export function CloudSync() {
   if (loading) {
     return (
       <section className="panel p-5">
-        <h2 className="font-display text-lg text-amber-300 mb-2">Cloud sync</h2>
+        <h2 className="font-display text-lg text-violet-300 mb-2">Cloud sync</h2>
         <p className="text-xs text-zinc-500">Checking session…</p>
       </section>
     );
@@ -103,7 +103,7 @@ export function CloudSync() {
   if (!user) {
     return (
       <section className="panel p-5 space-y-3">
-        <h2 className="font-display text-lg text-amber-300">Cloud sync</h2>
+        <h2 className="font-display text-lg text-violet-300">Cloud sync</h2>
         <p className="text-xs text-zinc-400">
           Optional. Sign in with your email to sync decks across devices. We&rsquo;ll send you a one-time magic link — no password.
         </p>
@@ -153,10 +153,10 @@ export function CloudSync() {
 
   return (
     <section className="panel p-5 space-y-3">
-      <h2 className="font-display text-lg text-amber-300">Cloud sync</h2>
+      <h2 className="font-display text-lg text-violet-300">Cloud sync</h2>
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm">
-          Signed in as <span className="text-amber-300 font-semibold">{user.email}</span>
+          Signed in as <span className="text-violet-300 font-semibold">{user.email}</span>
         </span>
         <SyncBadge status={syncStatus} lastSync={lastSync} />
         <button
@@ -180,7 +180,7 @@ export function CloudSync() {
 
 function SyncBadge({ status, lastSync }: { status: SyncStatus; lastSync: number | null }) {
   if (status === "syncing") {
-    return <span className="chip text-[10px] text-amber-300 border-amber-700/40">⟳ Syncing</span>;
+    return <span className="chip text-[10px] text-violet-300 border-violet-700/40">⟳ Syncing</span>;
   }
   if (status === "error") {
     return <span className="chip text-[10px] text-red-300 border-red-700/40">⚠ Sync error</span>;

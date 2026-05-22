@@ -96,7 +96,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
     return (
       <div className="panel p-12 text-center">
         <div className="text-5xl mb-3">🜂</div>
-        <h3 className="font-display text-xl text-amber-300 mb-1">Pick a commander to start your feed</h3>
+        <h3 className="font-display text-xl text-violet-300 mb-1">Pick a commander to start your feed</h3>
         <p className="text-zinc-400 text-sm">
           The recommendation feed pulls EDHREC top cards, theme synergies, and format staples within your commander&rsquo;s
           color identity.
@@ -111,22 +111,22 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-400">For</span>
-            <span className="font-semibold text-amber-300">{commander.name}</span>
+            <span className="font-semibold text-violet-300">{commander.name}</span>
             {partner && (
               <>
                 <span className="text-zinc-500">+</span>
-                <span className="font-semibold text-amber-300">{partner.name}</span>
+                <span className="font-semibold text-violet-300">{partner.name}</span>
               </>
             )}
           </div>
-          {loading && <span className="text-xs text-amber-400 ml-2">⟳ Loading…</span>}
+          {loading && <span className="text-xs text-violet-400 ml-2">⟳ Loading…</span>}
           <span className="text-xs text-zinc-500 ml-auto">{filtered.length} suggestions</span>
         </div>
 
         {themes.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {themes.map((t) => (
-              <span key={t} className="chip text-amber-300 border-amber-700/40">
+              <span key={t} className="chip text-violet-300 border-violet-700/40">
                 {t.startsWith("tribal:") ? `Tribal: ${t.slice(7)}` : t}
               </span>
             ))}
@@ -151,7 +151,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
                 key={s}
                 onClick={() => setSource(s)}
                 className={`px-2 py-1 rounded ${
-                  source === s ? "bg-amber-600 text-white" : "bg-bg-raised text-zinc-300 hover:bg-bg-border"
+                  source === s ? "bg-violet-600 text-white" : "bg-bg-raised text-zinc-300 hover:bg-bg-border"
                 }`}
               >
                 {s === "all" ? "All sources" : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -176,7 +176,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
               max={20}
               value={maxCmc}
               onChange={(e) => setMaxCmc(Number(e.target.value))}
-              className="accent-amber-500"
+              className="accent-violet-500"
             />
             <span className="text-zinc-300 w-6 text-right">{maxCmc}</span>
           </label>
@@ -188,7 +188,7 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
               type="checkbox"
               checked={ownedOnly}
               onChange={(e) => setOwnedOnly(e.target.checked)}
-              className="accent-amber-500"
+              className="accent-violet-500"
             />
             Owned only
           </label>
@@ -255,7 +255,7 @@ function GroupedFeed(props: FeedRowProps) {
       {Array.from(groups.entries()).map(([sec, items]) => (
         <section key={sec}>
           <div className="sticky top-0 z-10 bg-bg-base/80 backdrop-blur py-2 mb-2 border-b border-bg-border">
-            <h3 className="font-display text-lg text-amber-300">
+            <h3 className="font-display text-lg text-violet-300">
               {sec} <span className="text-zinc-500 text-sm font-sans ml-1">{items.length}</span>
             </h3>
           </div>
@@ -351,8 +351,8 @@ function FeedCard({
             onClick={() => onFastAddToCollection(r.card)}
             className={`text-[11px] px-2 py-1 rounded border transition flex-1 flex items-center justify-center gap-1 ${
               owned
-                ? "border-amber-700/40 bg-amber-900/30 text-amber-200 hover:bg-amber-900/50"
-                : "border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-amber-300"
+                ? "border-violet-700/40 bg-violet-900/30 text-violet-200 hover:bg-violet-900/50"
+                : "border-bg-border bg-bg-raised text-zinc-300 hover:bg-bg-border hover:text-violet-300"
             }`}
             title={
               owned

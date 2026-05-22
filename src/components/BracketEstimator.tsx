@@ -36,12 +36,12 @@ export function BracketEstimator({ deck }: { deck: Deck }) {
   return (
     <div className="panel p-3 space-y-3">
       <div className="flex items-baseline justify-between">
-        <h3 className="font-display text-base text-amber-400">Bracket Estimate</h3>
+        <h3 className="font-display text-base text-violet-400">Bracket Estimate</h3>
         <a
           href="https://magic.wizards.com/en/news/announcements/introducing-commander-brackets-beta"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-zinc-400 underline-offset-2 hover:underline hover:text-amber-400"
+          className="text-[10px] text-zinc-400 underline-offset-2 hover:underline hover:text-violet-400"
           title="Wizards of the Coast — Commander Brackets"
         >
           official ↗
@@ -137,7 +137,7 @@ export function BracketEstimator({ deck }: { deck: Deck }) {
       <div className="flex items-center justify-between gap-2 pt-1">
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-[10px] text-zinc-400 hover:text-amber-400 inline-flex items-center gap-1"
+          className="text-[10px] text-zinc-400 hover:text-violet-400 inline-flex items-center gap-1"
           aria-expanded={expanded}
         >
           <span>{expanded ? "▾" : "▸"}</span>
