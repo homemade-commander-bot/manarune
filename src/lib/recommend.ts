@@ -320,41 +320,60 @@ const THEME_QUERIES: Record<string, { role: string; query: string; reason: strin
 };
 
 export async function themedRecommendations(themes: string[], allowed: Set<Color>, max = 120): Promise<Recommendation[]> {
-  const out: Recommendation[] = [];
   const idQ = colorIdentityQuery(allowed);
-  const seen = new Set<string>();
-  let rank = 1;
+
+  // Build the full list of (query, label) jobs up front, then fire them
+  // ALL concurrently. The global Scryfall throttle still staggers the
+  // request *starts* by 100ms, but the network round-trips overlap, so
+  // a commander with 5 detected themes (≈10 queries) goes from
+  // ~10×(throttle+latency) sequential to roughly 10×throttle + one
+  // latency — typically a 4-6× wall-clock speedup on this stage.
+  type Job = { query: string; section: string; reason: string; take: number };
+  const jobs: Job[] = [];
   for (const theme of themes) {
     if (theme.startsWith("tribal:")) {
       const subtype = theme.slice(7);
-      try {
-        const list = await scryfall.searchCards(`t:${subtype} ${idQ} legal:commander`, { order: "edhrec" });
-        for (const c of list.data.slice(0, 20)) {
-          if (seen.has(c.id)) continue;
-          seen.add(c.id);
-          out.push({
-            card: c,
-            reason: `Tribal ${subtype}: synergistic creature`,
-            source: "theme",
-            section: `Tribal: ${subtype}`,
-            rank: rank++,
-          });
-        }
-      } catch {}
+      jobs.push({
+        query: `t:${subtype} ${idQ} legal:commander`,
+        section: `Tribal: ${subtype}`,
+        reason: `Tribal ${subtype}: synergistic creature`,
+        take: 20,
+      });
       continue;
     }
     const queries = THEME_QUERIES[theme];
     if (!queries) continue;
     for (const q of queries) {
+      jobs.push({
+        query: `${q.query} ${idQ} legal:commander`,
+        section: q.role,
+        reason: `${theme}: ${q.reason}`,
+        take: 12,
+      });
+    }
+  }
+
+  const results = await Promise.all(
+    jobs.map(async (job) => {
       try {
-        const list = await scryfall.searchCards(`${q.query} ${idQ} legal:commander`, { order: "edhrec" });
-        for (const c of list.data.slice(0, 12)) {
-          if (seen.has(c.id)) continue;
-          seen.add(c.id);
-          out.push({ card: c, reason: `${theme}: ${q.reason}`, source: "theme", section: q.role, rank: rank++ });
-        }
-        if (out.length >= max) return out.slice(0, max);
-      } catch {}
+        const list = await scryfall.searchCards(job.query, { order: "edhrec" });
+        return list.data.slice(0, job.take).map((card) => ({ card, job }));
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  // Flatten + dedupe in job order so the first theme's hits rank highest.
+  const out: Recommendation[] = [];
+  const seen = new Set<string>();
+  let rank = 1;
+  for (const batch of results) {
+    for (const { card, job } of batch) {
+      if (seen.has(card.id)) continue;
+      seen.add(card.id);
+      out.push({ card, reason: job.reason, source: "theme", section: job.section, rank: rank++ });
+      if (out.length >= max) return out.slice(0, max);
     }
   }
   return out.slice(0, max);
@@ -370,91 +389,108 @@ function shuffleInPlace<T>(arr: T[]): T[] {
   return arr;
 }
 
+// EDHREC commander page → recommendations. Extracted so the three
+// recommendation sources can be fired concurrently from
+// commanderRecommendations. Filters to the deck's color identity and
+// commander-legal cards.
+export async function edhrecRecommendations(
+  commander: Card,
+  allowed: Set<Color>,
+): Promise<Recommendation[]> {
+  const page = await edhrec.commanderPage(commander.name);
+  if (!page) return [];
+  const flat = edhrec.flattenRecs(page);
+  type MetaEntry = { name: string; section: string; synergy?: number; inclusion?: number };
+  const nameToMeta = new Map<string, MetaEntry>();
+  const identifiers: { name: string }[] = [];
+  for (const grp of flat) {
+    for (const c of grp.cards.slice(0, 60)) {
+      if (!nameToMeta.has(c.name)) {
+        nameToMeta.set(c.name, { name: c.name, section: grp.section, synergy: c.synergy, inclusion: c.inclusion });
+        identifiers.push({ name: c.name });
+      }
+    }
+  }
+  const out: Recommendation[] = [];
+  try {
+    const fetched = await scryfall.collection(identifiers);
+    let rank = 1;
+    for (const card of fetched) {
+      if (card.legalities.commander !== "legal") continue;
+      if (card.color_identity.some((ci) => !allowed.has(ci))) continue;
+      const meta = nameToMeta.get(card.name);
+      const section = meta?.section ?? "EDHREC";
+      const synergy = meta?.synergy;
+      out.push({
+        card,
+        reason: synergy != null
+          ? `EDHREC ${section} · synergy ${(synergy * 100).toFixed(0)}%`
+          : `EDHREC ${section}`,
+        source: "edhrec",
+        section,
+        synergy,
+        inclusion: meta?.inclusion,
+        rank: rank++,
+      });
+    }
+  } catch {
+    // Collection fetch failed — caller falls back to theme/staple recs.
+  }
+  return out;
+}
+
 export async function commanderRecommendations(
   commander: Card,
   partner?: Card,
-  opts: { themes?: string[]; max?: number; shuffle?: boolean } = {},
+  opts: {
+    themes?: string[];
+    max?: number;
+    shuffle?: boolean;
+    // Called after each source resolves with the cumulative deduped
+    // list so far. Lets the UI render EDHREC results immediately
+    // (~3-5s) instead of blocking on themes + staples (~20-30s).
+    // Only fired in source order: EDHREC → themes → staples.
+    onStage?: (recsSoFar: Recommendation[]) => void;
+  } = {},
 ): Promise<Recommendation[]> {
   const max = opts.max ?? 400;
   const shuffle = opts.shuffle ?? true;
   const allowed = commanderColorIdentity(commander, partner);
+  const themes = opts.themes ?? detectThemes(commander);
+
+  // Fire all three sources CONCURRENTLY. Wall-clock time becomes the
+  // slowest single source rather than the sum of all three.
+  const edhrecP = edhrecRecommendations(commander, allowed);
+  const themesP = themedRecommendations(themes, allowed, 120);
+  const staplesP = staplesFor(allowed, max);
+
   const recs: Recommendation[] = [];
   const seen = new Set<string>();
   let globalRank = 1;
 
-  // 1) EDHREC commander page — the most authoritative source for "what others play."
-  const page = await edhrec.commanderPage(commander.name);
-  if (page) {
-    const flat = edhrec.flattenRecs(page);
-    // Collect all EDHREC card names then batch-fetch via /cards/collection
-    // instead of N+1 individual cardByName calls.
-    type MetaEntry = { name: string; section: string; synergy?: number; inclusion?: number };
-    const allMeta: MetaEntry[] = [];
-    for (const grp of flat) {
-      for (const c of grp.cards.slice(0, 60)) {
-        allMeta.push({ name: c.name, section: grp.section, synergy: c.synergy, inclusion: c.inclusion });
-      }
+  const ingest = (incoming: Recommendation[]) => {
+    for (const r of incoming) {
+      if (seen.has(r.card.id)) continue;
+      if (r.card.color_identity.some((ci) => !allowed.has(ci))) continue;
+      seen.add(r.card.id);
+      recs.push({ ...r, rank: globalRank++ });
     }
-    const nameToMeta = new Map<string, MetaEntry>();
-    const identifiers: { name: string }[] = [];
-    for (const m of allMeta) {
-      if (!nameToMeta.has(m.name)) {
-        nameToMeta.set(m.name, m);
-        identifiers.push({ name: m.name });
-      }
-    }
-    try {
-      const fetched = await scryfall.collection(identifiers);
-      for (const card of fetched) {
-        if (seen.has(card.id)) continue;
-        if (card.legalities.commander !== "legal") continue;
-        if (card.color_identity.some((ci) => !allowed.has(ci))) continue;
-        seen.add(card.id);
-        const meta = nameToMeta.get(card.name);
-        const section = meta?.section ?? "EDHREC";
-        const synergy = meta?.synergy;
-        const inclusion = meta?.inclusion;
-        recs.push({
-          card,
-          reason: synergy != null
-            ? `EDHREC ${section} · synergy ${(synergy * 100).toFixed(0)}%`
-            : `EDHREC ${section}`,
-          source: "edhrec",
-          section,
-          synergy,
-          inclusion,
-          rank: globalRank++,
-        });
-      }
-    } catch {
-      // Collection fetch failed — fall through to theme/staple recs
-    }
-  }
+  };
 
-  // 2) Theme-targeted searches — always run so commander mechanics get
-  //    represented even when EDHREC has lots of generic staples.
-  const themes = opts.themes ?? detectThemes(commander);
-  const themed = await themedRecommendations(themes, allowed, 120);
-  for (const t of themed) {
-    if (seen.has(t.card.id)) continue;
-    seen.add(t.card.id);
-    recs.push({ ...t, rank: globalRank++ });
-  }
+  // Await + render in priority order. EDHREC is the most authoritative,
+  // so we surface it first; themes and staples are already in flight and
+  // append as they land.
+  ingest(await edhrecP);
+  opts.onStage?.(recs.slice());
 
-  // 3) Format staples to fill the rest
-  if (recs.length < max) {
-    const staples = await staplesFor(allowed, max - recs.length);
-    for (const s of staples) {
-      if (seen.has(s.card.id)) continue;
-      seen.add(s.card.id);
-      recs.push({ ...s, rank: globalRank++ });
-    }
-  }
+  ingest(await themesP);
+  opts.onStage?.(recs.slice());
 
-  // Shuffle so the user doesn't see the same order every visit. We keep
-  // synergy-tagged cards ordered toward the front by bucketing first
-  // (single pass), then shuffling within each bucket so the most-relevant
-  // stuff still appears early but the rest is randomized.
+  ingest(await staplesP);
+  opts.onStage?.(recs.slice());
+
+  // Shuffle (SwipeFeed path) so the user doesn't see the same order every
+  // visit. The Feed passes shuffle:false because it has its own sort.
   if (shuffle) {
     const high: Recommendation[] = [];
     const mid: Recommendation[] = [];

@@ -38,22 +38,44 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
   const ownedNames = useMemo(() => ownedCardNames(collection), [collection]);
   const hover = useCardHover();
 
-  // Load recommendations whenever the commander changes
+  // Load recommendations whenever the commander changes. We render
+  // progressively: EDHREC results appear within a few seconds via the
+  // onStage callback, then theme + staple results stream in, rather
+  // than the whole page staying blank until everything resolves.
   useEffect(() => {
     if (!commander) {
       setRecs([]);
       setThemes([]);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError(null);
+    setRecs([]);
     setThemes(detectThemes(commander));
     // shuffle: false — the feed has its own sort dropdown; we want stable
     // rank order by default so users can scroll a predictable list.
-    commanderRecommendations(commander, partner, { max: 400, shuffle: false })
-      .then((r) => setRecs(r))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load recommendations"))
-      .finally(() => setLoading(false));
+    commanderRecommendations(commander, partner, {
+      max: 400,
+      shuffle: false,
+      onStage: (partial) => {
+        // Guard against a stale commander's results landing after the
+        // user switched commanders mid-load.
+        if (!cancelled) setRecs(partial);
+      },
+    })
+      .then((r) => {
+        if (!cancelled) setRecs(r);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load recommendations");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [commander?.id, partner?.id]);
 
   function flashCard(id: string) {
@@ -119,7 +141,14 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
               </>
             )}
           </div>
-          {loading && <span className="text-xs text-violet-400 ml-2">⟳ Loading…</span>}
+          {loading && (
+            <span className="text-xs text-violet-400 ml-2 inline-flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+              {recs.length === 0
+                ? "Pulling EDHREC + Scryfall…"
+                : `Loading more… (${recs.length} so far)`}
+            </span>
+          )}
           <span className="text-xs text-zinc-500 ml-auto">{filtered.length} suggestions</span>
         </div>
 
@@ -220,6 +249,23 @@ export function RecommendationsFeed({ deck, onInspect }: Props) {
             fastAddGroupName={fastAddGroupName}
             ownedNames={ownedNames}
           />
+        )}
+        {/* Skeleton grid on the first load, before any results arrive,
+            so impatient users see structured "this is working" feedback
+            rather than a blank panel. */}
+        {loading && recs.length === 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {Array.from({ length: 15 }).map((_, i) => (
+              <div key={i} className="panel overflow-hidden animate-pulse">
+                <div className="aspect-[5/7] bg-bg-raised" />
+                <div className="p-2 space-y-1">
+                  <div className="h-3 bg-bg-raised rounded w-3/4" />
+                  <div className="h-2 bg-bg-raised rounded w-1/2" />
+                  <div className="h-7 bg-bg-raised rounded mt-1" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         {!loading && filtered.length === 0 && (
           <div className="text-center text-zinc-500 py-12 text-sm">
