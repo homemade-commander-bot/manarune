@@ -21,7 +21,10 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: https://cards.scryfall.io https://c1.scryfall.com https://svgs.scryfall.io",
-              "connect-src 'self' https://api.scryfall.com https://json.edhrec.com",
+              // Supabase project URL must be allowed so the browser client
+               // can reach the auth + REST endpoints. If we ever rotate
+               // projects, update this and redeploy.
+              "connect-src 'self' https://api.scryfall.com https://json.edhrec.com https://bjznqbxbdesxofnuohtn.supabase.co wss://bjznqbxbdesxofnuohtn.supabase.co",
             ].join("; "),
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
